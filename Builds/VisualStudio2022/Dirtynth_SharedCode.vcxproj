@@ -144,6 +144,7 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\dsp\TableBlep.cpp"/>
     <ClCompile Include="..\..\Source\PluginProcessor.cpp"/>
     <ClCompile Include="..\..\Source\PluginEditor.cpp"/>
     <ClCompile Include="C:\JUCE\modules\juce_audio_basics\audio_play_head\juce_AudioPlayHead.cpp">
@@ -2831,6 +2832,12 @@
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_gui_extra.cpp"/>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Source\dsp\DirtySystem.h"/>
+    <ClInclude Include="..\..\Source\dsp\Envelope.h"/>
+    <ClInclude Include="..\..\Source\dsp\Filter.h"/>
+    <ClInclude Include="..\..\Source\dsp\IIRBlep.h"/>
+    <ClInclude Include="..\..\Source\dsp\TableBlep.h"/>
+    <ClInclude Include="..\..\Source\dsp\Wavetable.h"/>
     <ClInclude Include="..\..\Source\PluginProcessor.h"/>
     <ClInclude Include="..\..\Source\PluginEditor.h"/>
     <ClInclude Include="C:\JUCE\modules\juce_audio_basics\audio_play_head\juce_AudioPlayHead.h"/>

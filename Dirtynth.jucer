@@ -4,6 +4,15 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="MOB2aV" name="Dirtynth">
     <GROUP id="{82E2CD57-903E-E646-D2C5-58147DAAF7BE}" name="Source">
+      <GROUP id="{CC3BDEF2-88EF-CDA1-2F21-32E658B472C8}" name="dsp">
+        <FILE id="GArvah" name="DirtySystem.h" compile="0" resource="0" file="Source/dsp/DirtySystem.h"/>
+        <FILE id="Lsf1Bt" name="Envelope.h" compile="0" resource="0" file="Source/dsp/Envelope.h"/>
+        <FILE id="MxBvhD" name="Filter.h" compile="0" resource="0" file="Source/dsp/Filter.h"/>
+        <FILE id="oY5Heu" name="IIRBlep.h" compile="0" resource="0" file="Source/dsp/IIRBlep.h"/>
+        <FILE id="r29II9" name="TableBlep.cpp" compile="1" resource="0" file="Source/dsp/TableBlep.cpp"/>
+        <FILE id="MbZ4Fa" name="TableBlep.h" compile="0" resource="0" file="Source/dsp/TableBlep.h"/>
+        <FILE id="DVHdDd" name="Wavetable.h" compile="0" resource="0" file="Source/dsp/Wavetable.h"/>
+      </GROUP>
       <FILE id="cIX3E0" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="QTzydr" name="PluginProcessor.h" compile="0" resource="0"
