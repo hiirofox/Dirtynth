@@ -49,11 +49,33 @@ namespace Dirtynth
 		int osc2WtPreset = 0;
 		float osc1WtPos = 0.0;
 		float osc2WtPos = 0.0;
-		float osc1MutantA[3] = { 0 };
-		float osc1MutantB[3] = { 0 };
-		float osc2MutantA[3] = { 0 };
-		float osc2MutantB[3] = { 0 };
+		int osc1MutantAType = 0;
+		int osc1MutantBType = 0;
+		int osc2MutantAType = 0;
+		int osc2MutantBType = 0;
+		float osc1MutantA1 = 0, osc1MutantA2 = 0, osc1MutantA3 = 0;
+		float osc2MutantA1 = 0, osc2MutantA2 = 0, osc2MutantA3 = 0;
+		float osc1MutantB1 = 0, osc1MutantB2 = 0, osc1MutantB3 = 0;
+		float osc2MutantB1 = 0, osc2MutantB2 = 0, osc2MutantB3 = 0;
+		float osc1Pitch = 0.0;
+		float osc2Pitch = 0.0;
+		float osc1Detune = 0.0;
+		float osc2Detune = 0.0;
+		float pmDepth = 0.0;
+		float oscMix = 0.0;
 
+		int filt1Type = 0;
+		int filt2Type = 0;
+		float filt1Cutoff = 0.0;
+		float filt2Cutoff = 0.0;
+		float filt1KeyTrack = 0.0;
+		float filt2KeyTrack = 0.0;
+		float filt1Reso = 0.0;
+		float filt2Reso = 0.0;
+		float filt1Morph = 0.0;
+		float filt2Morph = 0.0;
+		float filt2SwitchIn = 0.0;
+		float filtMix = 0.0;
 	};
 	class Dirtynth
 	{
