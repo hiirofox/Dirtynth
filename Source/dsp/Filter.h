@@ -294,7 +294,7 @@ namespace MinusMKI
 			x = bw12.ProcessSample(x);
 			for (int i = 0; i < numSOS; ++i)
 				x = svfs[i].ProcessSample(x);
-			return x;
+			return x * 2.0;
 		}
 		void SetSampleRate(float sr) override
 		{
@@ -460,6 +460,8 @@ namespace MinusMKI
 			float normf = cutoff / sampleRate;
 			k = -cheapSinPi(0.5 / numStages - normf) /
 				cheapSinPi(0.5 / numStages + normf);
+			if (k > 0.99)k = 0.99;
+			if (k < -0.99)k = -0.99;
 			fb = 1.0 - 1.0 / reso;
 			gainfix = sqrtf(fabs(fb - 1.0));
 		}

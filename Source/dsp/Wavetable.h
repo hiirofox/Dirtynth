@@ -335,7 +335,7 @@ namespace MinusMKI
 		float* intMagtableB = intMagtable2;
 		float* nextIntMagtable = intMagtable3;
 
-		float swapInterval = 1.0 / 256.0;
+		float swapInterval = 1.0 / 128.0;
 		float sampleCounter = 0;
 		int isSwapPrepared = 0;
 

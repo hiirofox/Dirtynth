@@ -5,10 +5,10 @@ namespace MinusMKI
 {
 	enum class EnvelopeMode {
 		PolyphonicResetOnNoteOn = 0,	//复音，按下时重置
-		PolyphonicNoReset = 1,			//复音，无重置
-		GlobalNoReset = 2,				//全局，无重置
-		GlobalResetOnFirstNoteOn = 3,	//全局，按下第一个键重置
-		GlobalResetOnAnyNoteOn = 4		//全局，按下任意键重置
+		PolyphonicNoReset = 1,			//复音，无重置(永远不触发，别用adsr!)
+		GlobalNoReset = 2,				//全局，无重置(永远不触发，别用adsr!)
+		GlobalResetOnFirstNoteOn = 3,	//全局，按下第一个键开始，松开最后一个键结束
+		GlobalResetOnAnyNoteOn = 4		//全局，按下任意键开始，松开最后一个键结束
 	};
 	class Envelope
 	{
