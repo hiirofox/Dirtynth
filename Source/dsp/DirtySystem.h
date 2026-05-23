@@ -135,6 +135,7 @@ namespace Dirtynth
 		float voicefreq = 0.0;
 		float voiceVel = 1.0;
 		float voiceStateVolume = 0.0;//用于检测活动状态
+		int isNoteOn = 0;
 		/*-------------------*/
 	public:
 		void SetSampleRate(float sr)
@@ -197,13 +198,18 @@ namespace Dirtynth
 		}
 		int IsVoiceActive() const
 		{
-			return voiceStateVolume > 0.00001f ? 1 : 0;//简单的门限检测是否活动
+			if (voiceStateVolume < 0.00001f && !isNoteOn) return 0;
+			return 1;
 		}
-		void SetVoiceEvent(float freq, float velocity)
+		void SetVoiceState(bool off0on1, float freq, float velocity)
 		{
-			voicefreq = freq;
-			voiceVel = velocity;
-			sampleCount = EnvelopeUpdateInterval;//立即更新包络
+			isNoteOn = off0on1;
+			if (isNoteOn)
+			{
+				voicefreq = freq;
+				voiceVel = velocity;
+				sampleCount = EnvelopeUpdateInterval;//立即更新包络
+			}
 		}
 		Envelope** GetSelectedEnvelops(DirtynthParams& params)//根据params返回当前选中的包络指针数组，方便外部函数调用
 		{
@@ -231,6 +237,7 @@ namespace Dirtynth
 		WavetableGenerator wtgen;
 		RegMutant regMutant;
 		DirtynthVoice voices[MaxPolyphony];
+		int voiceBelongNote[MaxPolyphony] = { -1 };//记录每个voice当前属于哪个midi note，-1表示不属于任何note了
 		int isVoiceActive[MaxPolyphony] = { 0 };
 		int nextVoiceIdx = 0;//最坏情况下使用循环分配voice。一般情况优先寻找不活动的voice
 		int midiNumNoteOn = 0;//用于检测是否有按键按下，进而决定是否更新包络状态
@@ -249,14 +256,14 @@ namespace Dirtynth
 			for (int i = 0; i < MaxPolyphony; ++i)
 				isVoiceActive[i] = voices[i].IsVoiceActive();
 		}
-		DirtynthVoice& FindNextVoice()
+		int FindNextVoiceIdx()
 		{
 			for (int i = 0; i < MaxPolyphony; ++i)
 				if (!isVoiceActive[i])
-					return voices[i];
-			DirtynthVoice& voice = voices[nextVoiceIdx];
+					return i;
+			int idx = nextVoiceIdx;
 			nextVoiceIdx = (nextVoiceIdx + 1) % MaxPolyphony;
-			return voice;
+			return idx;
 		}
 		void UpdateAllVoiceEnvelope_NoteOn(DirtynthVoice& voice)//在这里面更新包络状态，包络有全局和复音模式
 		{
@@ -266,10 +273,10 @@ namespace Dirtynth
 				Envelope** enves = voices[i].GetSelectedEnvelops(params);
 				for (int j = 0; j < NumEnvelopes; ++j)
 				{
-					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnFirstNoteOn)//全局，按下第一个键重置
+					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnFirstNoteOn)//全局，按下第一个键开始
 						if (midiNumNoteOn == 0)
 							enves[j]->SetNoteState(1);
-					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnAnyNoteOn)//全局，按下任意键重置
+					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnAnyNoteOn)//全局，按下任意键开始
 						enves[j]->SetNoteState(1);
 				}
 			}
@@ -277,7 +284,7 @@ namespace Dirtynth
 			Envelope** enves = voice.GetSelectedEnvelops(params);
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
-				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时重置
+				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
 					enves[j]->SetNoteState(1);
 			}
 		}
@@ -289,8 +296,9 @@ namespace Dirtynth
 				Envelope** enves = voices[i].GetSelectedEnvelops(params);
 				for (int j = 0; j < NumEnvelopes; ++j)
 				{
-					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnAnyNoteOn)//全局，按下任意键重置
-						if (midiNumNoteOn == 0)
+					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnFirstNoteOn ||
+						static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnAnyNoteOn)
+						if (midiNumNoteOn == 0)//全局都是松开最后一个键时重置
 							enves[j]->SetNoteState(0);
 				}
 			}
@@ -298,7 +306,7 @@ namespace Dirtynth
 			Envelope** enves = voice.GetSelectedEnvelops(params);
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
-				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时重置
+				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
 					enves[j]->SetNoteState(0);
 			}
 		}
@@ -307,19 +315,46 @@ namespace Dirtynth
 			/*PROCESS MIDI*/
 			for (int i = 0; i < numMidiEvents; ++i)
 			{
+				AutoFlagVoiceState();//每处理一个midi事件就更新一次voice状态
 				if (midiQueue[i].type == DirtynthMidiEvent::NoteOn)
 				{
 					float freq = 440.0f * powf(2.0f, (midiQueue[i].note - 69) / 12.0f);
 					float velocity = midiQueue[i].velocity / 127.0f;
-					DirtynthVoice& nextVoice = FindNextVoice();
-					nextVoice.SetVoiceEvent(freq, velocity);
+					int nextIdx = FindNextVoiceIdx();
+					DirtynthVoice& nextVoice = voices[nextIdx];
+					nextVoice.SetVoiceState(true, freq, velocity);
 					UpdateAllVoiceEnvelope_NoteOn(nextVoice);
-					midiNumNoteOn++;
+					midiNumNoteOn++;//从0开始
+					voiceBelongNote[nextIdx] = midiQueue[i].note;
+				}
+				else if (midiQueue[i].type == DirtynthMidiEvent::NoteOff)
+				{
+					for (int j = 0; j < MaxPolyphony; ++j)
+					{
+						if (voiceBelongNote[j] == midiQueue[i].note)
+						{
+							midiNumNoteOn--;//从0结束
+							if (midiNumNoteOn < 0)midiNumNoteOn = 0;
+							DirtynthVoice& thisVoice = voices[i];
+							thisVoice.SetVoiceState(false, 0.0, 0.0);//!voice在note off时不会改变内置freq和velo!
+							UpdateAllVoiceEnvelope_NoteOff(voices[j]);
+							voiceBelongNote[j] = -1;
+						}
+					}
 				}
 			}
 			/*------------*/
 
 			/*PROCESS VOICES*/
+			for (int i = 0; i < numSamples; ++i)
+			{
+				outl[i] = 0.0f;
+				outr[i] = 0.0f;
+			}
+			for (int i = 0; i < MaxPolyphony; ++i)
+			{
+				voices[i].ProcessBlockAccumulating(params, outl, outr, numSamples);
+			}
 			/*--------------*/
 		}
 	};
