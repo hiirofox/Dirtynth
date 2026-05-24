@@ -113,17 +113,33 @@ namespace Dirtynth
 	constexpr static float CutoffMax = 22000.0;
 	constexpr static float ResoMin = 0.707;
 	constexpr static float ResoMax = 40.0;
+	inline float Clamp01(float x)
+	{
+		if (x < 0.0f) return 0.0f;
+		if (x > 1.0f) return 1.0f;
+		return x;
+	}
 	inline float ParamToCutoff(float param)
 	{
+		param = Clamp01(param);
+		return CutoffMin * powf(CutoffMax / CutoffMin, param);
 	}
 	inline float ParamToReso(float param)
 	{
+		param = Clamp01(param);
+		return ResoMin * powf(ResoMax / ResoMin, param);
 	}
 	inline float CutoffToParam(float cutoff)
 	{
+		if (cutoff < CutoffMin) cutoff = CutoffMin;
+		if (cutoff > CutoffMax) cutoff = CutoffMax;
+		return logf(cutoff / CutoffMin) / logf(CutoffMax / CutoffMin);
 	}
 	inline float ResoToParam(float reso)
 	{
+		if (reso < ResoMin) reso = ResoMin;
+		if (reso > ResoMax) reso = ResoMax;
+		return logf(reso / ResoMin) / logf(ResoMax / ResoMin);
 	}
 	/*--------------*/
 
@@ -366,8 +382,13 @@ namespace Dirtynth
 						osc2MutantTaskID = -1;
 					}
 					//根据params更新滤波器参数
-					filter1.SetFilterParams(params.filt1Params.cutoff + voicefreq * params.filt1Params.keyTrack, params.filt1Params.reso, params.filt1Params.morph);
-					filter2.SetFilterParams(params.filt2Params.cutoff + voicefreq * params.filt2Params.keyTrack, params.filt2Params.reso, params.filt2Params.morph);
+					float cutoffTrackValue = powf(voicefreq / 440.0, params.filt1Params.keyTrack);
+					filter1.SetFilterParams(
+						ParamToCutoff(params.filt1Params.cutoff) * cutoffTrackValue,
+						ParamToReso(params.filt1Params.reso), params.filt1Params.morph);
+					filter2.SetFilterParams(
+						ParamToCutoff(params.filt2Params.cutoff) * cutoffTrackValue,
+						ParamToReso(params.filt2Params.reso), params.filt2Params.morph);
 				}
 				/*OSC PROCESS*/
 				float osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune) / 12.0);
