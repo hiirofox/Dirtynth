@@ -12,6 +12,7 @@ namespace Dirtynth
 	struct RegMutant
 	{
 		constexpr static int NumRegMutant = 4;
+		constexpr static const char* MutantNames[RegMutant::NumRegMutant] = { "HardSync","SelfPM","Kickizer","Disperser" };
 		std::vector<std::shared_ptr<TableMutant>> regMutant{
 			std::make_shared<TableMutantSync<WTOscillator::TableWidth>>(),
 			std::make_shared<TableMutantSelfPM<WTOscillator::TableWidth>>(),
@@ -29,6 +30,7 @@ namespace Dirtynth
 	struct RegFilter
 	{
 		constexpr static int NumRegFilter = 6;
+		constexpr static const char* FilterNames[RegFilter::NumRegFilter] = { "SVF12dB","SVF24dB","Ellip6order","Comb","Comb4Stage","Phaser" };
 		std::vector<std::shared_ptr<Filter>> regFilter{
 			std::make_shared<SVFilter12dB>(),
 			std::make_shared<SVFilter24dB>(),
@@ -48,6 +50,7 @@ namespace Dirtynth
 	struct RegEnvelope
 	{
 		constexpr static int NumRegEnvelope = 1;
+		constexpr static const char* EnvelopeNames[RegEnvelope::NumRegEnvelope] = { "ADSR" };
 		std::vector<std::shared_ptr<Envelope>> regEnvelope{
 			std::make_shared<ADSR>() };
 		std::shared_ptr<Envelope> operator[](std::size_t index)
@@ -67,6 +70,9 @@ namespace Dirtynth
 
 	struct DirtynthParams
 	{
+		float masterVol = 0.5;
+		float octave = 0.5;
+
 		struct OscParams
 		{
 			float oscWtPreset = 0;//int
@@ -82,7 +88,6 @@ namespace Dirtynth
 		float pmDepth = 0.0;
 		float oscMix = 0.0;
 		float oscAmp = 0.0;
-		float octave = 0.0;//int
 		struct FiltParams
 		{
 			float type = 0;//int
@@ -107,12 +112,88 @@ namespace Dirtynth
 			float enveP6 = 0.0;
 		}enveParams[NumEnvelopes];
 	};
-
+	struct ParamsNamePack
+	{
+		constexpr static const char* paramsName[] = {
+			"MasterVol",
+			"Octave",
+			"Osc1 Wt Preset",
+			"Osc1 Wt Pos",
+			"Osc1 MutA Type",
+			"Osc1 MutA P1",
+			"Osc1 MutA P2",
+			"Osc1 MutA P3",
+			"Osc1 MutB Type",
+			"Osc1 MutB P1",
+			"Osc1 MutB P2",
+			"Osc1 MutB P3",
+			"Osc1 Pitch",
+			"Osc1 Detune",
+			"Osc2 Wt Preset",
+			"Osc2 Wt Pos",
+			"Osc2 MutA Type",
+			"Osc2 MutA P1",
+			"Osc2 MutA P2",
+			"Osc2 MutA P3",
+			"Osc2 MutB Type",
+			"Osc2 MutB P1",
+			"Osc2 MutB P2",
+			"Osc2 MutB P3",
+			"Osc2 Pitch",
+			"Osc2 Detune",
+			"PMDepth",
+			"OscMix",
+			"OscAmp",
+			"Filt1 Type",
+			"Filt1 Cutoff",
+			"Filt1 KeyTrack",
+			"Filt1 Reso",
+			"Filt1 Morph",
+			"Filt2 Type",
+			"Filt2 Cutoff",
+			"Filt2 KeyTrack",
+			"Filt2 Reso",
+			"Filt2 Morph",
+			"Filt2 SwitchIn",
+			"FiltMix",
+			"Enve1 Type",
+			"Enve1 Mode",
+			"Enve1 Target",
+			"Enve1 Amount",
+			"Enve1 P1","Enve1 P2","Enve1 P3","Enve1 P4","Enve1 P5","Enve1 P6",
+			"Enve2 Type",
+			"Enve2 Mode",
+			"Enve2 Target",
+			"Enve2 Amount",
+			"Enve2 P1","Enve2 P2","Enve2 P3","Enve2 P4","Enve2 P5","Enve2 P6",
+			"Enve3 Type",
+			"Enve3 Mode",
+			"Enve3 Target",
+			"Enve3 Amount",
+			"Enve3 P1","Enve3 P2","Enve3 P3","Enve3 P4","Enve3 P5","Enve3 P6",
+			"Enve4 Type",
+			"Enve4 Mode",
+			"Enve4 Target",
+			"Enve4 Amount",
+			"Enve4 P1","Enve4 P2","Enve4 P3","Enve4 P4","Enve4 P5","Enve4 P6",
+			"Enve5 Type",
+			"Enve5 Mode",
+			"Enve5 Target",
+			"Enve5 Amount",
+			"Enve5 P1","Enve5 P2","Enve5 P3","Enve5 P4","Enve5 P5","Enve5 P6",
+			"Enve6 Type",
+			"Enve6 Mode",
+			"Enve6 Target",
+			"Enve6 Amount",
+			"Enve6 P1","Enve6 P2","Enve6 P3","Enve6 P4","Enve6 P5","Enve6 P6"
+		};
+	};
 	/*TOOLS FUNCTION*/
 	constexpr static float CutoffMin = 20.0;
 	constexpr static float CutoffMax = 22000.0;
 	constexpr static float ResoMin = 0.707;
 	constexpr static float ResoMax = 40.0;
+	constexpr static float EnveTimeMaxMs = 60000;
 	inline float Clamp01(float x)
 	{
 		if (x < 0.0f) return 0.0f;
@@ -140,6 +221,25 @@ namespace Dirtynth
 		if (reso < ResoMin) reso = ResoMin;
 		if (reso > ResoMax) reso = ResoMax;
 		return logf(reso / ResoMin) / logf(ResoMax / ResoMin);
+	}
+
+	inline float ParamToEnveTime(float param)
+	{
+		return expf((Clamp01(param) - 1.0) * 7.0) * EnveTimeMaxMs;
+	}
+	inline float EnveTimeToParam(float time)
+	{
+		if (time < 0.001) time = 0.001;
+		if (time > EnveTimeMaxMs) time = EnveTimeMaxMs;
+		return 1.0 + logf(time / EnveTimeMaxMs) / 7.0;
+	}
+	inline float ParamToEnveShape(float param)
+	{
+		return (param - 0.5) * 2.0 * 10.0;
+	}
+	inline float EnveShapeToParam(float shape)
+	{
+		return Clamp01(shape / 20.0 + 0.5);
 	}
 	/*--------------*/
 
@@ -257,6 +357,8 @@ namespace Dirtynth
 		int sampleCount = 0;
 		/*VOICE RUNTIME STATE*/
 		float voicefreq = 0.0;
+		float osc1dt = 0.0;
+		float osc2dt = 0.0;
 		float voiceVel = 1.0;
 		float voiceStateVolume = 0.0;//用于检测活动状态
 		int isNoteOn = 0;
@@ -308,15 +410,36 @@ namespace Dirtynth
 			Filter& filter2 = *std::dynamic_pointer_cast<Filter>(regFilt2[selectedFilt2Type]);
 			Envelope* enves[NumEnvelopes];
 			for (int i = 0; i < NumEnvelopes; ++i) enves[i] = regEnves[i][params.enveParams[i].enveType].get();
-
-			float voiceDtBase = voicefreq / sampleRate;
-			voiceStateVolume = 0.0;
-
+			//设置包络参数(包络参数不需要被调制)
+			for (int j = 0; j < NumEnvelopes; ++j)
+			{
+				float p1, p2, p3, p4, p5, p6;
+				if (params.enveParams[j].enveType == 0)//ADSR
+				{
+					p1 = ParamToEnveTime(params.enveParams[j].enveP1);//attMs
+					p2 = ParamToEnveShape(params.enveParams[j].enveP2);//attShape
+					p3 = ParamToEnveTime(params.enveParams[j].enveP3);//decMs
+					p4 = ParamToEnveShape(params.enveParams[j].enveP4);//decShape
+					p5 = params.enveParams[j].enveP5;//susLevel
+					p6 = ParamToEnveTime(params.enveParams[j].enveP6);//relMs
+				}
+				else
+				{
+					p1 = params.enveParams[j].enveP1;
+					p2 = params.enveParams[j].enveP2;
+					p3 = params.enveParams[j].enveP3;
+					p4 = params.enveParams[j].enveP4;
+					p5 = params.enveParams[j].enveP5;
+					p6 = params.enveParams[j].enveP6;
+				}
+				enves[j]->SetParams(p1, p2, p3, p4, p5, p6);
+			}
 			/*将被调制的参数指针，以及原始的参数指针打包*/
 			float* paramsArray = reinterpret_cast<float*>(&params);
 			float* origParamsArray = reinterpret_cast<float*>(&paramsInput);
 			float* paramTargetPtr[NumEnvelopes] = { nullptr };
 			float* paramOriginalValue[NumEnvelopes] = { nullptr };
+
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
 				int targetParamIdx = params.enveParams[j].enveTarget;
@@ -331,19 +454,15 @@ namespace Dirtynth
 					paramOriginalValue[j] = nullptr;
 				}
 			}
-
+			/*PROCESSOR*/
+			float voiceDtBase = voicefreq / sampleRate;
+			voiceStateVolume = 0.0;
 			for (int i = 0; i < numSamples; ++i)
 			{
 				sampleCount++;
 				if (sampleCount >= EnvelopeUpdateInterval)
 				{
 					sampleCount = 0;
-					//设置包络参数
-					for (int j = 0; j < NumEnvelopes; ++j)
-					{
-						enves[j]->SetParams(params.enveParams[j].enveP1, params.enveParams[j].enveP2, params.enveParams[j].enveP3,
-							params.enveParams[j].enveP4, params.enveParams[j].enveP5, params.enveParams[j].enveP6);
-					}
 					//更新包络
 					for (int j = 0; j < NumEnvelopes; ++j) enves[j]->Step();
 					//根据enveTarget和enveAmount修改params
@@ -389,10 +508,11 @@ namespace Dirtynth
 					filter2.SetFilterParams(
 						ParamToCutoff(params.filt2Params.cutoff) * cutoffTrackValue,
 						ParamToReso(params.filt2Params.reso), params.filt2Params.morph);
+					//更新oscillator频率
+					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune) / 12.0);
+					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune) / 12.0);
 				}
 				/*OSC PROCESS*/
-				float osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune) / 12.0);
-				float osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune) / 12.0);
 				float osc1out = osc1.ProcessSample(osc1dt);
 				float osc2out = osc2.ProcessSample(osc2dt + params.pmDepth * voiceDtBase * osc1out);//乘voiceDtBase让pm输入幅度与频率去相关
 				float oscout = (osc1out + (osc2out - osc1out) * params.oscMix) * params.oscAmp;
@@ -539,7 +659,8 @@ namespace Dirtynth
 				AutoFlagVoiceState();//每处理一个midi事件就更新一次voice状态
 				if (midiQueue[i].type == DirtynthMidiEvent::NoteOn)
 				{
-					float freq = 440.0f * powf(2.0f, (midiQueue[i].note - 69) / 12.0f);
+					int octave = (int)((params.octave - 0.5) * 2.0 * 4.0) * 12;//+-4 octave
+					float freq = 440.0f * powf(2.0f, (midiQueue[i].note + octave - 69) / 12.0f);
 					float velocity = midiQueue[i].velocity / 127.0f;
 					int nextIdx = FindNextVoiceIdx();
 					DirtynthVoice& nextVoice = voices[nextIdx];
@@ -575,6 +696,12 @@ namespace Dirtynth
 			for (int i = 0; i < MaxPolyphony; ++i)
 			{
 				voices[i].ProcessBlockAccumulating(params, outl, outr, numSamples);
+			}
+			float masterVol = params.masterVol;
+			for (int i = 0; i < numSamples; ++i)
+			{
+				outl[i] *= masterVol;
+				outr[i] *= masterVol;
 			}
 			/*--------------*/
 		}

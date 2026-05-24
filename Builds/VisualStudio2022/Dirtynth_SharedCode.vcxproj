@@ -144,6 +144,8 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\ui\LM_slider.cpp"/>
+    <ClCompile Include="..\..\Source\ui\LMKnobDirect.cpp"/>
     <ClCompile Include="..\..\Source\dsp\TableBlep.cpp"/>
     <ClCompile Include="..\..\Source\PluginProcessor.cpp"/>
     <ClCompile Include="..\..\Source\PluginEditor.cpp"/>
@@ -2832,6 +2834,9 @@
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_gui_extra.cpp"/>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Source\ui\LM_slider.h"/>
+    <ClInclude Include="..\..\Source\ui\LMKnobDirect.h"/>
+    <ClInclude Include="..\..\Source\ui\DirtynthUI.h"/>
     <ClInclude Include="..\..\Source\dsp\DirtySystem.h"/>
     <ClInclude Include="..\..\Source\dsp\Envelope.h"/>
     <ClInclude Include="..\..\Source\dsp\Filter.h"/>

@@ -2,6 +2,9 @@
 
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <Filter Include="Dirtynth\Source\ui">
+      <UniqueIdentifier>{3918F377-0B98-FA3C-58CC-82D8C95194FA}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Dirtynth\Source\dsp">
       <UniqueIdentifier>{FAA22066-CEA8-95CE-4600-FEF1BD2C248D}</UniqueIdentifier>
     </Filter>
@@ -673,6 +676,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\ui\LM_slider.cpp">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\ui\LMKnobDirect.cpp">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Source\dsp\TableBlep.cpp">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClCompile>
@@ -3537,6 +3546,15 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Source\ui\LM_slider.h">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\ui\LMKnobDirect.h">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\ui\DirtynthUI.h">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\DirtySystem.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
