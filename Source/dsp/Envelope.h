@@ -4,22 +4,22 @@
 namespace MinusMKI
 {
 	enum class EnvelopeMode {
-		PolyphonicResetOnNoteOn = 0,	//复音，按下时开始，松开时结束
-		PolyphonicNoReset = 1,			//复音，无重置(永远不触发，别用adsr!)
-		GlobalNoReset = 2,				//全局，无重置(永远不触发，别用adsr!)
-		GlobalResetOnFirstNoteOn = 3,	//全局，按下第一个键开始，松开最后一个键结束
-		GlobalResetOnAnyNoteOn = 4		//全局，按下任意键开始，松开最后一个键结束
+		PolyphonicResetOnNoteOn = 0,	//复音，按下时重置
+		PolyphonicNoReset = 1,			//复音，无重置
+		GlobalNoReset = 2,				//全局，无重置
+		GlobalResetOnFirstNoteOn = 3,	//全局，按下第一个键重置
+		GlobalResetOnAnyNoteOn = 4		//全局，按下任意键重置
 	};
 	class Envelope
 	{
 	private:
 	public:
-		virtual void Reset();
+		virtual void Reset() {};
 		virtual void SetSampleRate(float sr) {};
 		virtual void SetNoteState(bool off0on1) {};
 		virtual void SetParams(float p1, float p2, float p3, float p4, float p5, float p6) {};
 		virtual void Step() {};
-		virtual float GetValue() {};
+		virtual float GetValue() { return 0.0f; };
 	};
 	class ADSR :public Envelope
 	{
@@ -33,8 +33,11 @@ namespace MinusMKI
 		void Step() override
 		{
 			int idx = pos;
+			if (idx < 0)idx = 0;
+			if (idx > 3)idx = 3;
 			y = s[idx] * y + k[idx];
 			pos += r[idx];
+			if (pos > 3.0f)pos = 3.0f;
 		}
 		void Reset() override
 		{

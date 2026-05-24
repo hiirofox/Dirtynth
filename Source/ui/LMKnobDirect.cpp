@@ -52,17 +52,15 @@ void LMKnobDirect::ParamLink(float minv, float maxv, float defaultValue, float& 
 	slider.setRange(minv, maxv);
 	slider.setDoubleClickReturnValue(true, defaultValue);
 
-	// currentValue 仍然是一个引用，所以用 &currentValue 来获取它的地址
-	slider.setValue(currentValue, juce::sendNotificationSync);
-
 	// 存储回调函数
 	onValueChangeCallback = std::move(onValueChange);
-
-	onValueChangeCallback(currentValue);
 
 	// *** 修改点 ***
 	// 存储外部变量的地址，而不是试图拷贝值
 	this->currentValue = &currentValue;
+
+	// currentValue 仍然是一个引用，所以用 &currentValue 来获取它的地址
+	slider.setValue(currentValue, juce::dontSendNotification);
 }
 
 void LMKnobDirect::timerCallback()
@@ -75,7 +73,7 @@ void LMKnobDirect::timerCallback()
 	if (currentValue != nullptr)
 	{
 		// 使用 *currentValue 来解引用指针，获取它所指向的外部变量的 *值*
-		slider.setValue(*currentValue, juce::sendNotificationAsync);
+		slider.setValue(*currentValue, juce::dontSendNotification);
 	}
 }
 

@@ -116,6 +116,8 @@ public:
 	~LMCombox();
 	void addItem(juce::String name, int ID);
 	void setSelectedID(int ID);
+	int getSelectedID() const;
+	void setChangedCallback(std::function<void(int)> cbFunc);
 	void setPos(int x, int y);
 	void setComboxWidth(int ComboxWidth);
 	void resized() override;
@@ -124,6 +126,7 @@ private:
 	std::unique_ptr<L_MODEL_STYLE> L_MODEL_STYLE_LOOKANDFEEL;
 	juce::ComboBox comboBox;
 	int Width = 64;
+	std::function<void(int)> onChangeCallback;
 
 	// ComboBoxÑ¡Ôñ¸Ä±äÊ±µÄ»Øµ÷º¯Êý
 	void comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged) override;

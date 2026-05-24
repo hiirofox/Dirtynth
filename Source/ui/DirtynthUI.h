@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstring>
+
 #include <JuceHeader.h>
 #include "LM_slider.h"
 #include "LMKnobDirect.h"
@@ -7,37 +9,109 @@
 
 using namespace Dirtynth;
 
-class GlobalSetting :public juce::Component
+namespace DirtynthUIHelpers
+{
+	static constexpr const char* EnvelopeModeNames[] = {
+		"PolyReset",
+		"PolyNoReset",
+		"GlobalNoReset",
+		"GlobalFirst",
+		"GlobalAny"
+	};
+
+	inline int ClampInt(int value, int minValue, int maxValue)
+	{
+		if (value < minValue) return minValue;
+		if (value > maxValue) return maxValue;
+		return value;
+	}
+
+	inline int ParamsNameCount()
+	{
+		return static_cast<int>(sizeof(ParamsNamePack::paramsName) / sizeof(ParamsNamePack::paramsName[0]));
+	}
+
+	template <int NumNames>
+	inline void AddNameItems(LMCombox& combo, const char* const (&names)[NumNames])
+	{
+		for (int i = 0; i < NumNames; ++i)
+			combo.addItem(names[i], i + 1);
+	}
+
+	inline void LinkIndexedCombo(LMCombox& combo, float& param, int itemCount, std::function<void()> onParamChanged = {})
+	{
+		const int selectedIndex = ClampInt(static_cast<int>(param), 0, itemCount - 1);
+		combo.setSelectedID(selectedIndex + 1);
+
+		float* linkedParam = &param;
+		combo.setChangedCallback([linkedParam, itemCount, onParamChanged](int selectedID)
+			{
+				const int selectedIndex = ClampInt(selectedID - 1, 0, itemCount - 1);
+				*linkedParam = static_cast<float>(selectedIndex);
+				if (onParamChanged)
+					onParamChanged();
+			});
+	}
+
+	inline DirtynthParams MakeDefaultUIParams()
+	{
+		DirtynthParams params;
+		for (int i = 0; i < NumEnvelopes; ++i)
+			params.enveParams[i].enveTarget = -1.0f;
+		return params;
+	}
+}
+
+class GlobalSetting : public juce::Component
 {
 private:
 	DirtynthParams& params;
+	DirtynthSystem& instance;
 	LMKnobDirect masterVol;
 	LMKnobDirect octave;
-	LMCombox preset;//暂时没有实现预设功能
+	LMCombox preset;
+
+	void SendParams()
+	{
+		instance.SetParams(params);
+	}
 public:
-	GlobalSetting(DirtynthParams& params) :params(params)
+	GlobalSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
 	{
 		masterVol.setText("Master");
-		masterVol.ParamLink(0.0, 1.0, 0.5, params.masterVol, [&](float x) {params.masterVol = x; });
+		masterVol.ParamLink(0.0f, 1.0f, 0.5f, params.masterVol, [this](float x) { this->params.masterVol = x; SendParams(); });
 		octave.setText("Octave");
-		octave.ParamLink(0.0, 1.0, 0.5, params.octave, [&](float x) {params.octave = x; });
+		octave.ParamLink(0.0f, 1.0f, 0.5f, params.octave, [this](float x) { this->params.octave = x; SendParams(); });
 		preset.addItem("--Init--", 1);
+		preset.setSelectedID(1);
 		addAndMakeVisible(masterVol);
 		addAndMakeVisible(octave);
 		addAndMakeVisible(preset);
 	}
+
+	void Refresh()
+	{
+		masterVol.setValue(params.masterVol);
+		octave.setValue(params.octave);
+		preset.setSelectedID(1);
+	}
+
 	void resized() override
 	{
 		masterVol.setBounds(64 * 0, 0, 64, 64);
 		octave.setBounds(64 * 1, 0, 64, 64);
 		preset.setBounds(64 * 2 + 16, (64 - 32) / 2, 128, 24);
 	}
+
 	int GetTotalWidth() { return 64 * 2 + 16 + 128 + 32; }
 };
-class OscSetting :public juce::Component
+
+class OscSetting : public juce::Component
 {
 private:
 	DirtynthParams& params;
+	DirtynthSystem& instance;
+	const int oscIndex;
 	LMCombox wtpreset;
 	LMKnobDirect wtpos;
 	LMKnobDirect pitch;
@@ -50,31 +124,51 @@ private:
 	LMKnobDirect pB1;
 	LMKnobDirect pB2;
 	LMKnobDirect pB3;
-public:
-	OscSetting(DirtynthParams& params, int osc) :params(params)
+
+	DirtynthParams::OscParams& GetOscParams()
 	{
+		return (oscIndex == 1) ? params.osc1Params : params.osc2Params;
+	}
+
+	void SendParams()
+	{
+		instance.SetParams(params);
+	}
+
+public:
+	OscSetting(DirtynthParams& params, DirtynthSystem& instance, int osc) : params(params), instance(instance), oscIndex(osc)
+	{
+		using namespace DirtynthUIHelpers;
+
 		wtpreset.addItem("InitSaw", 1);
+		AddNameItems(mutantAtype, RegMutant::MutantNames);
+		AddNameItems(mutantBtype, RegMutant::MutantNames);
+
 		wtpos.setText("TablePos");
 		pitch.setText("Pitch");
 		detune.setText("Detune");
-		mutantAtype.addItem("Kicknizer", 1);
 		pA1.setText("PA1");
 		pA2.setText("PA2");
 		pA3.setText("PA3");
-		mutantBtype.addItem("Kicknizer", 1);
 		pB1.setText("PB1");
 		pB2.setText("PB2");
 		pB3.setText("PB3");
-		DirtynthParams::OscParams& oscParams = (osc == 1) ? params.osc1Params : params.osc2Params;
-		wtpos.ParamLink(0.0, 1.0, 0.5, oscParams.oscWtPos, [&](float x) {oscParams.oscWtPos = x; });
-		pitch.ParamLink(-48.0, 48.0, 0.0, oscParams.oscPitch, [&](float x) {oscParams.oscPitch = x; });
-		detune.ParamLink(-1200.0, 1200.0, 0.0, oscParams.oscDetune, [&](float x) {oscParams.oscDetune = x; });
-		pA1.ParamLink(0.0, 1.0, 0.0, oscParams.mutantA.p1, [&](float x) {oscParams.mutantA.p1 = x; });
-		pA2.ParamLink(0.0, 1.0, 0.0, oscParams.mutantA.p2, [&](float x) {oscParams.mutantA.p2 = x; });
-		pA3.ParamLink(0.0, 1.0, 0.0, oscParams.mutantA.p3, [&](float x) {oscParams.mutantA.p3 = x; });
-		pB1.ParamLink(0.0, 1.0, 0.0, oscParams.mutantB.p1, [&](float x) {oscParams.mutantB.p1 = x; });
-		pB2.ParamLink(0.0, 1.0, 0.0, oscParams.mutantB.p2, [&](float x) {oscParams.mutantB.p2 = x; });
-		pB3.ParamLink(0.0, 1.0, 0.0, oscParams.mutantB.p3, [&](float x) {oscParams.mutantB.p3 = x; });
+
+		auto& oscParams = GetOscParams();
+		LinkIndexedCombo(wtpreset, oscParams.oscWtPreset, 1, [this]() { SendParams(); });
+		LinkIndexedCombo(mutantAtype, oscParams.mutantA.mutantType, RegMutant::NumRegMutant, [this]() { SendParams(); });
+		LinkIndexedCombo(mutantBtype, oscParams.mutantB.mutantType, RegMutant::NumRegMutant, [this]() { SendParams(); });
+
+		wtpos.ParamLink(0.0f, 1.0f, 0.5f, oscParams.oscWtPos, [this](float x) { GetOscParams().oscWtPos = x; SendParams(); });
+		pitch.ParamLink(-48.0f, 48.0f, 0.0f, oscParams.oscPitch, [this](float x) { GetOscParams().oscPitch = x; SendParams(); });
+		detune.ParamLink(-1200.0f, 1200.0f, 0.0f, oscParams.oscDetune, [this](float x) { GetOscParams().oscDetune = x; SendParams(); });
+		pA1.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p1, [this](float x) { GetOscParams().mutantA.p1 = x; SendParams(); });
+		pA2.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p2, [this](float x) { GetOscParams().mutantA.p2 = x; SendParams(); });
+		pA3.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p3, [this](float x) { GetOscParams().mutantA.p3 = x; SendParams(); });
+		pB1.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantB.p1, [this](float x) { GetOscParams().mutantB.p1 = x; SendParams(); });
+		pB2.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantB.p2, [this](float x) { GetOscParams().mutantB.p2 = x; SendParams(); });
+		pB3.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantB.p3, [this](float x) { GetOscParams().mutantB.p3 = x; SendParams(); });
+
 		addAndMakeVisible(wtpreset);
 		addAndMakeVisible(wtpos);
 		addAndMakeVisible(pitch);
@@ -88,6 +182,24 @@ public:
 		addAndMakeVisible(pB2);
 		addAndMakeVisible(pB3);
 	}
+
+	void Refresh()
+	{
+		auto& oscParams = GetOscParams();
+		wtpreset.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(oscParams.oscWtPreset), 0, 0) + 1);
+		mutantAtype.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(oscParams.mutantA.mutantType), 0, RegMutant::NumRegMutant - 1) + 1);
+		mutantBtype.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(oscParams.mutantB.mutantType), 0, RegMutant::NumRegMutant - 1) + 1);
+		wtpos.setValue(oscParams.oscWtPos);
+		pitch.setValue(oscParams.oscPitch);
+		detune.setValue(oscParams.oscDetune);
+		pA1.setValue(oscParams.mutantA.p1);
+		pA2.setValue(oscParams.mutantA.p2);
+		pA3.setValue(oscParams.mutantA.p3);
+		pB1.setValue(oscParams.mutantB.p1);
+		pB2.setValue(oscParams.mutantB.p2);
+		pB3.setValue(oscParams.mutantB.p3);
+	}
+
 	int totalWidth = 0;
 	void resized() override
 	{
@@ -106,36 +218,67 @@ public:
 		pB2.setBounds(totalWidth, 0, 64, 64), totalWidth += 64;
 		pB3.setBounds(totalWidth, 0, 64, 64), totalWidth += 64;
 	}
+
 	int GetTotalWidth() { resized(); return totalWidth; }
 };
-class FilterSetting :public juce::Component
+
+class FilterSetting : public juce::Component
 {
 private:
 	DirtynthParams& params;
+	DirtynthSystem& instance;
+	const int filtIndex;
 	LMCombox filterType;
 	LMKnobDirect cutoff;
 	LMKnobDirect keyTrack;
 	LMKnobDirect reso;
 	LMKnobDirect morph;
-public:
-	FilterSetting(DirtynthParams& params, int filt) :params(params)
+
+	DirtynthParams::FiltParams& GetFiltParams()
 	{
-		filterType.addItem("SVF12", 1);
+		return (filtIndex == 1) ? params.filt1Params : params.filt2Params;
+	}
+
+	void SendParams()
+	{
+		instance.SetParams(params);
+	}
+
+public:
+	FilterSetting(DirtynthParams& params, DirtynthSystem& instance, int filt) : params(params), instance(instance), filtIndex(filt)
+	{
+		using namespace DirtynthUIHelpers;
+
+		AddNameItems(filterType, RegFilter::FilterNames);
 		cutoff.setText("Cutoff");
 		keyTrack.setText("KeyTrack");
 		reso.setText("Reso");
 		morph.setText("Morph");
-		DirtynthParams::FiltParams& filtParams = (filt == 1) ? params.filt1Params : params.filt2Params;
-		cutoff.ParamLink(0.0, 1.0, 1.0, filtParams.cutoff, [&](float x) {filtParams.cutoff = x; });
-		keyTrack.ParamLink(0.0, 1.0, 0.0, filtParams.keyTrack, [&](float x) {filtParams.keyTrack = x; });
-		reso.ParamLink(0.0, 1.0, 0.0, filtParams.reso, [&](float x) {filtParams.reso = x; });
-		morph.ParamLink(0.0, 1.0, 0.0, filtParams.morph, [&](float x) {filtParams.morph = x; });
+
+		auto& filtParams = GetFiltParams();
+		LinkIndexedCombo(filterType, filtParams.type, RegFilter::NumRegFilter, [this]() { SendParams(); });
+		cutoff.ParamLink(0.0f, 1.0f, 1.0f, filtParams.cutoff, [this](float x) { GetFiltParams().cutoff = x; SendParams(); });
+		keyTrack.ParamLink(0.0f, 1.0f, 0.0f, filtParams.keyTrack, [this](float x) { GetFiltParams().keyTrack = x; SendParams(); });
+		reso.ParamLink(0.0f, 1.0f, 0.0f, filtParams.reso, [this](float x) { GetFiltParams().reso = x; SendParams(); });
+		morph.ParamLink(0.0f, 1.0f, 0.0f, filtParams.morph, [this](float x) { GetFiltParams().morph = x; SendParams(); });
+
 		addAndMakeVisible(filterType);
 		addAndMakeVisible(cutoff);
 		addAndMakeVisible(keyTrack);
 		addAndMakeVisible(reso);
 		addAndMakeVisible(morph);
 	}
+
+	void Refresh()
+	{
+		auto& filtParams = GetFiltParams();
+		filterType.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(filtParams.type), 0, RegFilter::NumRegFilter - 1) + 1);
+		cutoff.setValue(filtParams.cutoff);
+		keyTrack.setValue(filtParams.keyTrack);
+		reso.setValue(filtParams.reso);
+		morph.setValue(filtParams.morph);
+	}
+
 	void resized() override
 	{
 		int comboxWidth = 96;
@@ -145,107 +288,196 @@ public:
 		reso.setBounds(comboxWidth + 16 + 128, 0, 64, 64);
 		morph.setBounds(comboxWidth + 16 + 192, 0, 64, 64);
 	}
+
 	int GetTotalWidth() { return 96 + 16 + 64 * 4; }
 };
-class OscModulatorSetting :public juce::Component
+
+class OscModulatorSetting : public juce::Component
 {
 private:
 	DirtynthParams& params;
+	DirtynthSystem& instance;
 	LMKnobDirect pmDepth;
 	LMKnobDirect oscMix;
 	LMKnobDirect oscAmp;
+
+	void SendParams()
+	{
+		instance.SetParams(params);
+	}
 public:
-	OscModulatorSetting(DirtynthParams& params) :params(params)
+	OscModulatorSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
 	{
 		pmDepth.setText("1PM2");
 		oscMix.setText("OscMix");
 		oscAmp.setText("OscAmp");
-		pmDepth.ParamLink(0.0, 1.0, 0.0, params.pmDepth, [&](float x) {params.pmDepth = x; });
-		oscMix.ParamLink(0.0, 1.0, 0.0, params.oscMix, [&](float x) {params.oscMix = x; });
-		oscAmp.ParamLink(0.0, 1.0, 0.0, params.oscAmp, [&](float x) {params.oscAmp = x; });;
+		pmDepth.ParamLink(0.0f, 1.0f, 0.0f, params.pmDepth, [this](float x) { this->params.pmDepth = x; SendParams(); });
+		oscMix.ParamLink(0.0f, 1.0f, 0.0f, params.oscMix, [this](float x) { this->params.oscMix = x; SendParams(); });
+		oscAmp.ParamLink(0.0f, 1.0f, 0.0f, params.oscAmp, [this](float x) { this->params.oscAmp = x; SendParams(); });
 		addAndMakeVisible(pmDepth);
 		addAndMakeVisible(oscMix);
 		addAndMakeVisible(oscAmp);
 	}
+
+	void Refresh()
+	{
+		pmDepth.setValue(params.pmDepth);
+		oscMix.setValue(params.oscMix);
+		oscAmp.setValue(params.oscAmp);
+	}
+
 	void resized() override
 	{
 		pmDepth.setBounds(64 * 0, 0, 64, 64);
 		oscMix.setBounds(64 * 1, 0, 64, 64);
 		oscAmp.setBounds(64 * 2, 0, 64, 64);
 	}
+
 	int GetTotalWidth() { return 64 * 3; }
 };
-class FilterModulatorSetting :public juce::Component
+
+class FilterModulatorSetting : public juce::Component
 {
 private:
 	DirtynthParams& params;
+	DirtynthSystem& instance;
 	LMKnobDirect filt2SwitchIn;
 	LMKnobDirect filtMix;
+
+	void SendParams()
+	{
+		instance.SetParams(params);
+	}
 public:
-	FilterModulatorSetting(DirtynthParams& params) :params(params)
+	FilterModulatorSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
 	{
 		filt2SwitchIn.setText("F2Input");
 		filtMix.setText("FiltMix");
-		filt2SwitchIn.ParamLink(0.0, 1.0, 0.0, params.filt2SwitchIn, [&](float x) {params.filt2SwitchIn = x; });
-		filtMix.ParamLink(0.0, 1.0, 0.0, params.filtMix, [&](float x) {params.filtMix = x; });
+		filt2SwitchIn.ParamLink(0.0f, 1.0f, 0.0f, params.filt2SwitchIn, [this](float x) { this->params.filt2SwitchIn = x; SendParams(); });
+		filtMix.ParamLink(0.0f, 1.0f, 0.0f, params.filtMix, [this](float x) { this->params.filtMix = x; SendParams(); });
 		addAndMakeVisible(filt2SwitchIn);
 		addAndMakeVisible(filtMix);
 	}
+
+	void Refresh()
+	{
+		filt2SwitchIn.setValue(params.filt2SwitchIn);
+		filtMix.setValue(params.filtMix);
+	}
+
 	void resized() override
 	{
 		filt2SwitchIn.setBounds(64 * 0, 0, 64, 64);
 		filtMix.setBounds(64 * 1, 0, 64, 64);
 	}
+
 	int GetTotalWidth() { return 64 * 2; }
 };
-class EnvelopeSetting :public juce::Component
+
+class EnvelopeSetting : public juce::Component
 {
 private:
 	DirtynthParams& params;
+	DirtynthSystem& instance;
+	int selectedEnvelope = 0;
 	LMCombox envView;
 	LMCombox envType;
 	LMCombox envMode;
 	LMCombox envTarget;
+	LMKnobDirect amount;
 	LMKnobDirect p1;
 	LMKnobDirect p2;
 	LMKnobDirect p3;
 	LMKnobDirect p4;
 	LMKnobDirect p5;
 	LMKnobDirect p6;
-public:
-	EnvelopeSetting(DirtynthParams& params) :params(params)
+
+	DirtynthParams::EnveParams& GetSelectedParams()
 	{
-		envView.addItem("Env1", 1);
-		envView.addItem("Env2", 2);
-		envView.addItem("Env3", 3);
-		envView.addItem("Env4", 4);
-		envView.addItem("Env5", 5);
-		envView.addItem("Env6", 6);
-		envType.addItem("ADSR", 1);
-		envMode.addItem("PolyReset", 1);
+		return params.enveParams[selectedEnvelope];
+	}
+
+	void SendParams()
+	{
+		instance.SetParams(params);
+	}
+
+	void UpdateEnvelopeTargetSelection()
+	{
+		const int target = static_cast<int>(GetSelectedParams().enveTarget);
+		if (target < 0 || target >= DirtynthUIHelpers::ParamsNameCount())
+			envTarget.setSelectedID(1);
+		else
+			envTarget.setSelectedID(target + 2);
+	}
+
+public:
+	EnvelopeSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
+	{
+		using namespace DirtynthUIHelpers;
+
+		for (int i = 0; i < NumEnvelopes; ++i)
+			envView.addItem("Enve" + juce::String(i + 1), i + 1);
+
+		AddNameItems(envType, RegEnvelope::EnvelopeNames);
+		AddNameItems(envMode, EnvelopeModeNames);
 		envTarget.addItem("--none--", 1);
-		p1.setText("P1");
-		p2.setText("P2");
-		p3.setText("P3");
-		p4.setText("P4");
-		p5.setText("P5");
-		p6.setText("P6");
+		for (int i = 0; i < ParamsNameCount(); ++i)
+			envTarget.addItem(ParamsNamePack::paramsName[i], i + 2);
+
+		envView.setChangedCallback([this](int selectedID)
+			{
+				SelectEnve(DirtynthUIHelpers::ClampInt(selectedID - 1, 0, NumEnvelopes - 1));
+			});
+		envType.setChangedCallback([this](int selectedID)
+			{
+				GetSelectedParams().enveType = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 1, 0, RegEnvelope::NumRegEnvelope - 1));
+				SendParams();
+				SelectEnve(selectedEnvelope);
+			});
+		envMode.setChangedCallback([this](int selectedID)
+			{
+				const int modeCount = static_cast<int>(sizeof(DirtynthUIHelpers::EnvelopeModeNames) / sizeof(DirtynthUIHelpers::EnvelopeModeNames[0]));
+				GetSelectedParams().enveMode = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 1, 0, modeCount - 1));
+				SendParams();
+			});
+		envTarget.setChangedCallback([this](int selectedID)
+			{
+				if (selectedID <= 1)
+					GetSelectedParams().enveTarget = -1.0f;
+				else
+					GetSelectedParams().enveTarget = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 2, 0, DirtynthUIHelpers::ParamsNameCount() - 1));
+				SendParams();
+			});
 
 		addAndMakeVisible(envView);
 		addAndMakeVisible(envType);
 		addAndMakeVisible(envMode);
 		addAndMakeVisible(envTarget);
+		addAndMakeVisible(amount);
 		addAndMakeVisible(p1);
 		addAndMakeVisible(p2);
 		addAndMakeVisible(p3);
 		addAndMakeVisible(p4);
 		addAndMakeVisible(p5);
 		addAndMakeVisible(p6);
+
+		SelectEnve(0);
 	}
+
 	void SelectEnve(int index)
 	{
-		DirtynthParams::EnveParams& enveParams = params.enveParams[index];
-		if (enveParams.enveType == 0)//ADSR
+		selectedEnvelope = DirtynthUIHelpers::ClampInt(index, 0, NumEnvelopes - 1);
+		DirtynthParams::EnveParams& enveParams = GetSelectedParams();
+
+		envView.setSelectedID(selectedEnvelope + 1);
+		envType.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(enveParams.enveType), 0, RegEnvelope::NumRegEnvelope - 1) + 1);
+		const int modeCount = static_cast<int>(sizeof(DirtynthUIHelpers::EnvelopeModeNames) / sizeof(DirtynthUIHelpers::EnvelopeModeNames[0]));
+		envMode.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(enveParams.enveMode), 0, modeCount - 1) + 1);
+		UpdateEnvelopeTargetSelection();
+
+		amount.setText("Amount");
+		if (enveParams.enveType == 0)
 		{
 			p1.setText("Attack");
 			p2.setText("AttShape");
@@ -253,12 +485,6 @@ public:
 			p4.setText("DecShape");
 			p5.setText("Sustain");
 			p6.setText("Release");
-			p1.ParamLink(0.0, 1.0, 0.0, enveParams.enveP1, [&](float x) {enveParams.enveP1 = x; });
-			p2.ParamLink(0.0, 1.0, 0.0, enveParams.enveP2, [&](float x) {enveParams.enveP2 = x; });
-			p3.ParamLink(0.0, 1.0, 0.0, enveParams.enveP3, [&](float x) {enveParams.enveP3 = x; });
-			p4.ParamLink(0.0, 1.0, 0.0, enveParams.enveP4, [&](float x) {enveParams.enveP4 = x; });
-			p5.ParamLink(0.0, 1.0, 0.0, enveParams.enveP5, [&](float x) {enveParams.enveP5 = x; });
-			p6.ParamLink(0.0, 1.0, 0.0, enveParams.enveP6, [&](float x) {enveParams.enveP6 = x; });
 		}
 		else
 		{
@@ -268,43 +494,87 @@ public:
 			p4.setText("P4");
 			p5.setText("P5");
 			p6.setText("P6");
-			p1.ParamLink(0.0, 1.0, 0.0, enveParams.enveP1, [&](float x) {enveParams.enveP1 = x; });
-			p2.ParamLink(0.0, 1.0, 0.0, enveParams.enveP2, [&](float x) {enveParams.enveP2 = x; });
-			p3.ParamLink(0.0, 1.0, 0.0, enveParams.enveP3, [&](float x) {enveParams.enveP3 = x; });
-			p4.ParamLink(0.0, 1.0, 0.0, enveParams.enveP4, [&](float x) {enveParams.enveP4 = x; });
-			p5.ParamLink(0.0, 1.0, 0.0, enveParams.enveP5, [&](float x) {enveParams.enveP5 = x; });
-			p6.ParamLink(0.0, 1.0, 0.0, enveParams.enveP6, [&](float x) {enveParams.enveP6 = x; });
 		}
+
+		amount.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveAmount, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveAmount = x; SendParams(); });
+		p1.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP1, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP1 = x; SendParams(); });
+		p2.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP2, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP2 = x; SendParams(); });
+		p3.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP3, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP3 = x; SendParams(); });
+		p4.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP4, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP4 = x; SendParams(); });
+		p5.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP5, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP5 = x; SendParams(); });
+		p6.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP6, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP6 = x; SendParams(); });
 	}
+
+	void Refresh()
+	{
+		SelectEnve(selectedEnvelope);
+	}
+
 	void resized() override
 	{
 		envView.setBounds(0, (64 - 32) / 2, 96, 24);
 		envType.setBounds(96 + 16, (64 - 32) / 2, 96, 24);
 		envMode.setBounds(192 + 32, (64 - 32) / 2, 96, 24);
-		envTarget.setBounds(288 + 48, (64 - 32) / 2, 96, 24);
-		p1.setBounds(384 + 64, 0, 64, 64);
-		p2.setBounds(448 + 64, 0, 64, 64);
-		p3.setBounds(512 + 64, 0, 64, 64);
-		p4.setBounds(576 + 64, 0, 64, 64);
-		p5.setBounds(640 + 64, 0, 64, 64);
-		p6.setBounds(704 + 64, 0, 64, 64);
+		envTarget.setBounds(288 + 48, (64 - 32) / 2, 128, 24);
+		amount.setBounds(416 + 64, 0, 64, 64);
+		p1.setBounds(480 + 64, 0, 64, 64);
+		p2.setBounds(544 + 64, 0, 64, 64);
+		p3.setBounds(608 + 64, 0, 64, 64);
+		p4.setBounds(672 + 64, 0, 64, 64);
+		p5.setBounds(736 + 64, 0, 64, 64);
+		p6.setBounds(800 + 64, 0, 64, 64);
 	}
-	int GetTotalWidth() { return 384 + 64 + 64 * 6; }
+
+	int GetTotalWidth() { return 416 + 64 + 64 * 7; }
 };
-class DirtynthUI : public juce::Component
+
+class DirtynthUI : public juce::Component, private juce::Timer
 {
 private:
+	DirtynthSystem& instance;
 	DirtynthParams params;
-	GlobalSetting globalSetting{ params };
-	OscModulatorSetting oscModulatorSetting{ params };
-	FilterModulatorSetting filterModulatorSetting{ params };
-	OscSetting osc1Setting{ params, 1 };
-	OscSetting osc2Setting{ params, 2 };
-	FilterSetting filter1Setting{ params, 1 };
-	FilterSetting filter2Setting{ params, 2 };
-	EnvelopeSetting envelopeSetting{ params };
+	GlobalSetting globalSetting;
+	OscModulatorSetting oscModulatorSetting;
+	FilterModulatorSetting filterModulatorSetting;
+	OscSetting osc1Setting;
+	OscSetting osc2Setting;
+	FilterSetting filter1Setting;
+	FilterSetting filter2Setting;
+	EnvelopeSetting envelopeSetting;
+
+	void RefreshFromParams()
+	{
+		globalSetting.Refresh();
+		oscModulatorSetting.Refresh();
+		filterModulatorSetting.Refresh();
+		osc1Setting.Refresh();
+		osc2Setting.Refresh();
+		filter1Setting.Refresh();
+		filter2Setting.Refresh();
+		envelopeSetting.Refresh();
+	}
+
+	void RefreshFromInstance()
+	{
+		DirtynthParams incomingParams = instance.GetParams();
+		if (std::memcmp(&incomingParams, &params, sizeof(DirtynthParams)) == 0)
+			return;
+
+		params = incomingParams;
+		RefreshFromParams();
+	}
 public:
-	DirtynthUI()
+	DirtynthUI(DirtynthSystem& instance)
+		: instance(instance),
+		params(instance.GetParams()),
+		globalSetting(params, instance),
+		oscModulatorSetting(params, instance),
+		filterModulatorSetting(params, instance),
+		osc1Setting(params, instance, 1),
+		osc2Setting(params, instance, 2),
+		filter1Setting(params, instance, 1),
+		filter2Setting(params, instance, 2),
+		envelopeSetting(params, instance)
 	{
 		addAndMakeVisible(globalSetting);
 		addAndMakeVisible(oscModulatorSetting);
@@ -314,7 +584,16 @@ public:
 		addAndMakeVisible(filter1Setting);
 		addAndMakeVisible(filter2Setting);
 		addAndMakeVisible(envelopeSetting);
+
+		RefreshFromParams();
+		startTimerHz(20);
 	}
+
+	void timerCallback() override
+	{
+		RefreshFromInstance();
+	}
+
 	void resized() override
 	{
 		globalSetting.setBounds(32, 32 + 64 * 0, globalSetting.GetTotalWidth(), 64);

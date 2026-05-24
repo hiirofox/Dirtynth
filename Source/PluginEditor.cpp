@@ -11,7 +11,7 @@
 
 //==============================================================================
 DirtynthAudioProcessorEditor::DirtynthAudioProcessorEditor(DirtynthAudioProcessor& p)
-	: AudioProcessorEditor(&p), audioProcessor(p)
+	: AudioProcessorEditor(&p), audioProcessor(p), dirtynthUI(p.dirtynth)
 {
 	// Make sure that before the constructor has finished, you've set the
 	// editor's size to whatever you need it to be.

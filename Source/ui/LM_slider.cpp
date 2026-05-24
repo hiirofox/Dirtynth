@@ -293,7 +293,17 @@ void LMCombox::addItem(juce::String name, int ID)
 
 void LMCombox::setSelectedID(int ID)
 {
-	comboBox.setSelectedId(ID);
+	comboBox.setSelectedId(ID, juce::dontSendNotification);
+}
+
+int LMCombox::getSelectedID() const
+{
+	return comboBox.getSelectedId();
+}
+
+void LMCombox::setChangedCallback(std::function<void(int)> cbFunc)
+{
+	onChangeCallback = std::move(cbFunc);
 }
 
 void LMCombox::setPos(int x, int y)
@@ -319,6 +329,7 @@ void LMCombox::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
 {
 	if (comboBoxThatHasChanged == &comboBox)
 	{
-		// Handle combo box change
+		if (onChangeCallback)
+			onChangeCallback(comboBox.getSelectedId());
 	}
 }

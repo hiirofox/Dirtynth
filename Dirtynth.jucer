@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="f7SonM" name="Dirtynth" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn">
   <MAINGROUP id="MOB2aV" name="Dirtynth">
     <GROUP id="{82E2CD57-903E-E646-D2C5-58147DAAF7BE}" name="Source">
       <GROUP id="{ED663600-A631-13DD-69D6-48D639E3BA81}" name="ui">
