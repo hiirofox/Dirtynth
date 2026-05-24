@@ -9,6 +9,12 @@
 namespace Dirtynth
 {
 	using namespace MinusMKI;
+	
+	constexpr static int NumEnvelopes = 6;
+	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好
+	constexpr static int MaxPolyphony = 8;
+	constexpr static int NumMutantThreads = 2;//根据平台cpu填
+
 	struct RegMutant
 	{
 		constexpr static int NumRegMutant = 4;
@@ -63,10 +69,6 @@ namespace Dirtynth
 		}
 	};
 
-	constexpr static int NumEnvelopes = 6;
-	constexpr static int EnvelopeUpdateInterval = 4;
-	constexpr static int MaxPolyphony = 8;
-	constexpr static int NumMutantThreads = 2;//根据平台cpu填
 
 	struct DirtynthParams
 	{
@@ -194,6 +196,7 @@ namespace Dirtynth
 	constexpr static float ResoMin = 0.707;
 	constexpr static float ResoMax = 40.0;
 	constexpr static float EnveTimeMaxMs = 60000;
+	constexpr static float EnveExpShape = 4.0;
 	inline float Clamp01(float x)
 	{
 		if (x < 0.0f) return 0.0f;
@@ -225,13 +228,18 @@ namespace Dirtynth
 
 	inline float ParamToEnveTime(float param)
 	{
-		return expf((Clamp01(param) - 1.0) * 12.0) * EnveTimeMaxMs;
+		float x = expf((Clamp01(param) - 1.0) * EnveExpShape);
+		const static float expShape = expf(-EnveExpShape);
+		float y = (x - expShape) / (1.0f - expShape);
+		return y * EnveTimeMaxMs;
 	}
 	inline float EnveTimeToParam(float time)
 	{
-		if (time < 0.001) time = 0.001;
-		if (time > EnveTimeMaxMs) time = EnveTimeMaxMs;
-		return 1.0 + logf(time / EnveTimeMaxMs) / 12.0;
+		float y = Clamp01(time / EnveTimeMaxMs);
+		const static float expShape = expf(-EnveExpShape);
+		float x = y * (1.0f - expShape) + expShape;
+		float param = 1.0f + logf(x) / EnveExpShape;
+		return Clamp01(param);
 	}
 	inline float ParamToEnveShape(float param)
 	{
@@ -247,10 +255,13 @@ namespace Dirtynth
 	{
 	private:
 		std::thread threads[NumMutantThreads];
-		WavetableGenerator wtgen[NumMutantThreads];
+		WavetableGenerator wtgenOsc1[NumMutantThreads];//这个计算很重，准备两套给osc1和osc2
+		WavetableGenerator wtgenOsc2[NumMutantThreads];
 		RegMutant regMutant[NumMutantThreads];
 		struct MutantTask
 		{
+			int oscIndex;
+
 			int wtgenPreset;
 			float wtgenPos; //WavetableGenerator 0-1
 			int typeA;
@@ -283,12 +294,13 @@ namespace Dirtynth
 			}
 		}
 		int SubmitMutantTask(
+			int oscIndex,
 			int wtgenPreset, float wtgenPos,//WavetableGenerator参数
 			int typeA, float pA1, float pA2, float pA3,//mutantA参数
 			int typeB, float pB1, float pB2, float pB3,//mutantB参数
 			float* intMagtable/*tableWidth*2*/, int tableWidth)//输出表参数
 		{
-			MutantTask pack = { wtgenPreset, wtgenPos, typeA, pA1, pA2, pA3, typeB, pB1, pB2, pB3, intMagtable, tableWidth };
+			MutantTask pack = { oscIndex, wtgenPreset, wtgenPos, typeA, pA1, pA2, pA3, typeB, pB1, pB2, pB3, intMagtable, tableWidth };
 			MutantTask* nextTask = nullptr;
 			int taskID = -1;
 			for (int i = 0; i < MaxQueueLen; ++i)
@@ -322,11 +334,15 @@ namespace Dirtynth
 			if (taskID < 0 || taskID >= MaxQueueLen)return;
 			taskFlags[taskID].store(0);
 		}
-
 		void MutantThreadFunc(int threadId)
 		{
 			float* localTable = new float[WTOscillator::TableWidth * 2];
-			WavetableGenerator& wtGenerator = wtgen[threadId];
+			WavetableGenerator& wtGeneratorOsc1 = wtgenOsc1[threadId];
+			WavetableGenerator& wtGeneratorOsc2 = wtgenOsc2[threadId];
+			int wtgenPresetOsc1 = 0;
+			int wtgenPresetOsc2 = 0;
+			wtGeneratorOsc1.Generate(wtgenPresetOsc1);
+			wtGeneratorOsc2.Generate(wtgenPresetOsc2);
 			while (isRunning)
 			{
 				for (int i = threadId; i < MaxQueueLen; i += NumMutantThreads)
@@ -336,7 +352,19 @@ namespace Dirtynth
 					{
 						TableMutant* mutantA = regMutant[threadId][task.typeA].get();
 						TableMutant* mutantB = regMutant[threadId][task.typeB].get();
-						wtGenerator.Generate(task.wtgenPreset);
+
+						WavetableGenerator& wtGenerator = (task.oscIndex == 1) ? wtGeneratorOsc1 : wtGeneratorOsc2;
+						if (task.oscIndex == 1 && task.wtgenPreset != wtgenPresetOsc1)//只在preset有变化时更新
+						{
+							wtGenerator.Generate(task.wtgenPreset);
+							wtgenPresetOsc1 = task.wtgenPreset;
+						}
+						if (task.oscIndex == 2 && task.wtgenPreset != wtgenPresetOsc2)
+						{
+							wtGenerator.Generate(task.wtgenPreset);
+							wtgenPresetOsc2 = task.wtgenPreset;
+						}
+
 						float* wtgenTable = wtGenerator.GetTable(task.wtgenPos * 63.0);//0-1!
 						for (int j = 0; j < task.tableWidth; ++j)localTable[j] = wtgenTable[j];
 						mutantA->SetMutantParams(task.pA1, task.pA2, task.pA3);
@@ -347,7 +375,7 @@ namespace Dirtynth
 						taskFlags[i].store(2);
 					}
 				}
-				std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
+				std::this_thread::sleep_for(std::chrono::nanoseconds(4000));//cpu你幸苦了！
 			}
 		}
 	};
@@ -366,6 +394,8 @@ namespace Dirtynth
 		float osc2dt = 0.0;
 		float voiceVel = 1.0;
 		float voiceStateVolume = 0.0;//用于检测活动状态
+		DirtynthParams::OscParams::MutantParams lastOsc1MutA, lastOsc1MutB;//用于检测mutant参数变化
+		DirtynthParams::OscParams::MutantParams lastOsc2MutA, lastOsc2MutB;
 		int isNoteOn = 0;
 
 		int osc1MutantTaskID = -1;
@@ -486,7 +516,7 @@ namespace Dirtynth
 					//检查oscillator的intMagtable是否需要更新，并更新
 					if (osc1MutantTaskID == -1 && osc1.IsSwapTablePrepared())
 					{
-						osc1MutantTaskID = mutantThreadPool->SubmitMutantTask(
+						osc1MutantTaskID = mutantThreadPool->SubmitMutantTask(1,
 							params.osc1Params.oscWtPreset, params.osc1Params.oscWtPos,
 							selectedOsc1MutantAType, params.osc1Params.mutantA.p1, params.osc1Params.mutantA.p2, params.osc1Params.mutantA.p3,
 							selectedOsc1MutantBType, params.osc1Params.mutantB.p1, params.osc1Params.mutantB.p2, params.osc1Params.mutantB.p3,
@@ -494,7 +524,7 @@ namespace Dirtynth
 					}
 					if (osc2MutantTaskID == -1 && osc2.IsSwapTablePrepared())
 					{
-						osc2MutantTaskID = mutantThreadPool->SubmitMutantTask(
+						osc2MutantTaskID = mutantThreadPool->SubmitMutantTask(2,
 							params.osc2Params.oscWtPreset, params.osc2Params.oscWtPos,
 							selectedOsc2MutantAType, params.osc2Params.mutantA.p1, params.osc2Params.mutantA.p2, params.osc2Params.mutantA.p3,
 							selectedOsc2MutantBType, params.osc2Params.mutantB.p1, params.osc2Params.mutantB.p2, params.osc2Params.mutantB.p3,
@@ -513,7 +543,7 @@ namespace Dirtynth
 						osc2MutantTaskID = -1;
 					}
 					//根据params更新滤波器参数
-					float cutoffTrackValue = powf(voicefreq / 440.0, params.filt1Params.keyTrack);
+					float cutoffTrackValue = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
 					filter1.SetFilterParams(
 						ParamToCutoff(params.filt1Params.cutoff) * cutoffTrackValue,
 						ParamToReso(params.filt1Params.reso), params.filt1Params.morph);
@@ -587,6 +617,7 @@ namespace Dirtynth
 		MutantThreadPool mutantThreadPool;
 		int voiceBelongNote[MaxPolyphony] = { -1 };//记录每个voice当前属于哪个midi note，-1表示不属于任何note了
 		int isVoiceActive[MaxPolyphony] = { 0 };
+		int isNoteActive[128] = { 0 };
 		int nextVoiceIdx = 0;//最坏情况下使用循环分配voice。一般情况优先寻找不活动的voice
 		int midiNumNoteOn = 0;//用于检测是否有按键按下，进而决定是否更新包络状态
 	public:
@@ -615,11 +646,14 @@ namespace Dirtynth
 		}
 		int FindNextVoiceIdx()
 		{
-			for (int i = 0; i < MaxPolyphony; ++i)
+			for (int i = 0; i < MaxPolyphony; ++i)//先解决掉不响的
 				if (!isVoiceActive[i])
 					return i;
+			for (int i = 0; i < MaxPolyphony; ++i)//再解决掉正在响但不按键的
+				if (!isNoteActive[voiceBelongNote[i]])
+					return i;
 			int idx = nextVoiceIdx;
-			nextVoiceIdx = (nextVoiceIdx + 1) % MaxPolyphony;
+			nextVoiceIdx = (nextVoiceIdx + 1) % MaxPolyphony;//没有了只能循环分配
 			return idx;
 		}
 		void UpdateAllVoiceEnvelope_NoteOn(DirtynthVoice& voice)//在这里面更新包络状态，包络有全局和复音模式
@@ -685,6 +719,7 @@ namespace Dirtynth
 					UpdateAllVoiceEnvelope_NoteOn(nextVoice);
 					midiNumNoteOn++;//从0开始
 					voiceBelongNote[nextIdx] = midiQueue[i].note;
+					isNoteActive[midiQueue[i].note] = 1;
 				}
 				else if (midiQueue[i].type == DirtynthMidiEvent::NoteOff)
 				{
@@ -698,6 +733,7 @@ namespace Dirtynth
 							thisVoice.SetVoiceState(false, 0.0, 0.0);//!voice在note off时不会改变内置freq和velo!
 							UpdateAllVoiceEnvelope_NoteOff(voices[j]);
 							voiceBelongNote[j] = -1;
+							isNoteActive[midiQueue[i].note] = 0;
 						}
 					}
 				}
@@ -714,7 +750,7 @@ namespace Dirtynth
 			{
 				voices[i].ProcessBlockAccumulating(params, outl, outr, numSamples);
 			}
-			float masterVol = params.masterVol * 0.01;
+			float masterVol = params.masterVol * 0.00125;
 			for (int i = 0; i < numSamples; ++i)
 			{
 				outl[i] *= masterVol;

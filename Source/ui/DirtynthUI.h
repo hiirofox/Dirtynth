@@ -496,7 +496,7 @@ public:
 			p6.setText("P6");
 		}
 
-		amount.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveAmount, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveAmount = x; SendParams(); });
+		amount.ParamLink(-1.0f, 1.0f, 0.0f, enveParams.enveAmount, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveAmount = x; SendParams(); });
 		p1.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP1, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP1 = x; SendParams(); });
 		p2.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP2, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP2 = x; SendParams(); });
 		p3.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP3, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP3 = x; SendParams(); });

@@ -457,6 +457,8 @@ namespace MinusMKI
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
 			numStages = morph * (MaxStages - 2) + 2.0;
+			if (cutoff < 20.0)reso = 0.707;
+			if (cutoff > sampleRate / 2 - 3000.0)cutoff = sampleRate / 2 - 3000.0;
 			float normf = cutoff / sampleRate;
 			k = -cheapSinPi(0.5 / numStages - normf) /
 				cheapSinPi(0.5 / numStages + normf);
