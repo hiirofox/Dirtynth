@@ -456,7 +456,20 @@ namespace MinusMKI
 		{
 			return isSwapPrepared == 1;
 		}
-		void ApplyIntMagtable(float* source, int TableWidth)
+		float* GetNextIntMagtable()
+		{
+			return nextIntMagtable;
+		}
+		int GetIntMagtableWidth()
+		{
+			return TableWidth * 2;
+		}
+		void SetFillCompleteFlag()
+		{
+			isSwapPrepared = 2;
+		}
+
+		void ApplyIntMagtable(float* source, int TableWidth)//新版弃用
 		{
 			//在单线程调用下一句必死无疑
 			//while (!IsSwapTablePrepared())std::this_thread::yield();

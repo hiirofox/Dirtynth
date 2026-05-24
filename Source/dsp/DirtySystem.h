@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "Wavetable.h"
 #include "Filter.h"
 #include "Envelope.h"
@@ -61,6 +63,8 @@ namespace Dirtynth
 	constexpr static int NumEnvelopes = 6;
 	constexpr static int EnvelopeUpdateInterval = 4;
 	constexpr static int MaxPolyphony = 8;
+	constexpr static int NumMutantThreads = 2;//根据平台cpu填
+
 	struct DirtynthParams
 	{
 		struct OscParams
@@ -105,28 +109,119 @@ namespace Dirtynth
 	};
 
 	/*TOOLS FUNCTION*/
-	inline void EnvelopeStep(Envelope* enves[NumEnvelopes])
-	{
-		for (int j = 0; j < NumEnvelopes; ++j)
-			enves[j]->Step();
-	}
-	inline void ParamsApplyEnvelope(DirtynthParams& params, Envelope* enves[NumEnvelopes])
-	{
-		//根据enveTarget和enveAmount修改params
-		float* paramsArray = reinterpret_cast<float*>(&params);
-		for (int j = 0; j < NumEnvelopes; ++j)
-		{
-			int targetParamIdx = params.enveParams[j].enveTarget;
-			paramsArray[targetParamIdx] += params.enveParams[j].enveAmount * enves[j]->GetValue();
-			//之后应该补个各种参数的amount范围系数，有些参数大有些参数小
-		}
-	}
 	/*--------------*/
+
+	class MutantThreadPool//异步计算mutant线程池
+	{
+	private:
+		std::thread threads[NumMutantThreads];
+		WavetableGenerator wtgen[NumMutantThreads];
+		RegMutant regMutant[NumMutantThreads];
+		struct MutantTask
+		{
+			int wtgenPreset;
+			float wtgenPos; //WavetableGenerator 0-1
+			int typeA;
+			float pA1, pA2, pA3;//mutantA
+			int typeB;
+			float pB1, pB2, pB3;//mutantB
+
+			float* intMagtable;
+			int tableWidth;
+		};
+		constexpr static int MaxQueueLen = MaxPolyphony * 2 + 10;
+		MutantTask taskQueue[MaxQueueLen];//每个osc有2个mutant，外加一些冗余
+		std::atomic_bool taskFlags[MaxQueueLen] = { false };
+		int submitIdx = 0, processIdx = 0;
+		std::atomic<bool> isRunning = true;
+	public:
+		MutantThreadPool()
+		{
+			for (int i = 0; i < NumMutantThreads; ++i)
+			{
+				threads[i] = std::thread(&MutantThreadPool::MutantThreadFunc, this, i);
+			}
+		}
+		~MutantThreadPool()
+		{
+			isRunning = false;
+			for (int i = 0; i < NumMutantThreads; ++i)
+			{
+				if (threads[i].joinable())threads[i].join();
+			}
+		}
+		int SubmitMutantTask(
+			int wtgenPreset, float wtgenPos,//WavetableGenerator参数
+			int typeA, float pA1, float pA2, float pA3,//mutantA参数
+			int typeB, float pB1, float pB2, float pB3,//mutantB参数
+			float* intMagtable/*tableWidth*2*/, int tableWidth)//输出表参数
+		{
+			MutantTask pack = { wtgenPreset, wtgenPos, typeA, pA1, pA2, pA3, typeB, pB1, pB2, pB3, intMagtable, tableWidth };
+			MutantTask* nextTask = nullptr;
+			int taskID = -1;
+			for (int i = 0; i < MaxQueueLen; ++i)
+			{
+				int idx = (submitIdx + i) % MaxQueueLen;
+				if (taskFlags[idx].load() == 0)
+				{
+					taskID = idx;
+					nextTask = &taskQueue[idx];
+					break;
+				}
+			}
+			if (nextTask)
+			{
+				*nextTask = pack;
+				taskFlags[taskID].store(1);
+			}
+			else
+			{
+				taskID = submitIdx;
+				taskQueue[submitIdx] = pack;
+				taskFlags[submitIdx].store(1);
+				submitIdx = (submitIdx + 1) % MaxQueueLen;
+			}
+			return taskID;
+		}
+		int GetTaskState(int taskID)
+		{
+			if (taskID < 0 || taskID >= MaxQueueLen)return -1;
+			return taskFlags[taskID].load();
+		}
+
+		void MutantThreadFunc(int threadId)
+		{
+			float* localTable = new float[WTOscillator::TableWidth * 2];
+			WavetableGenerator& wtGenerator = wtgen[threadId];
+			while (isRunning)
+			{
+				for (int i = threadId; i < MaxQueueLen; i += NumMutantThreads)
+				{
+					MutantTask& task = taskQueue[i];
+					if (taskFlags[i].load() == 1)
+					{
+						TableMutant* mutantA = regMutant[threadId][task.typeA].get();
+						TableMutant* mutantB = regMutant[threadId][task.typeB].get();
+						wtGenerator.Generate(task.wtgenPreset);
+						float* wtgenTable = wtGenerator.GetTable(task.wtgenPos * 63.0);//0-1!
+						for (int j = 0; j < task.tableWidth; ++j)localTable[j] = wtgenTable[j];
+						mutantA->SetMutantParams(task.pA1, task.pA2, task.pA3);
+						mutantB->SetMutantParams(task.pB1, task.pB2, task.pB3);
+						mutantA->Apply(localTable, task.tableWidth);
+						mutantB->Apply(localTable, task.tableWidth);
+						WTOscillator::CalcIntMagtable(task.intMagtable, localTable, task.tableWidth);
+						taskFlags[i].store(0);
+					}
+				}
+				std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
+			}
+		}
+	};
 
 	class DirtynthVoice
 	{
 	private:
-		float sampleRate = 48000;
+		float sampleRate = 48000.0;
 		WTOscillator osc1, osc2;
 		RegFilter regFilt1, regFilt2;
 		RegEnvelope regEnves[NumEnvelopes];
@@ -136,8 +231,25 @@ namespace Dirtynth
 		float voiceVel = 1.0;
 		float voiceStateVolume = 0.0;//用于检测活动状态
 		int isNoteOn = 0;
+
+		int osc1MutantTaskID = -1;
+		int osc2MutantTaskID = -1;
 		/*-------------------*/
+		MutantThreadPool* mutantThreadPool;
 	public:
+		DirtynthVoice()
+		{
+			SetSampleRate(48000.0);
+		}
+		DirtynthVoice(MutantThreadPool* pool) :mutantThreadPool(pool)
+		{
+			SetSampleRate(48000.0);
+		}
+		void SetMutantThreadPool(MutantThreadPool* pool)
+		{
+			mutantThreadPool = pool;
+		}
+
 		void SetSampleRate(float sr)
 		{
 			sampleRate = sr;
@@ -150,7 +262,7 @@ namespace Dirtynth
 			}
 			for (int i = 0; i < RegEnvelope::NumRegEnvelope; ++i)
 				for (int j = 0; j < NumEnvelopes; ++j)
-					regEnves[j][i]->SetSampleRate(sr / EnvelopeUpdateInterval);
+					regEnves[j][i]->SetSampleRate(sr / EnvelopeUpdateInterval);//根据间隔设置采样率
 		}
 		void ProcessBlockAccumulating(DirtynthParams& paramsInput, float* outl, float* outr, int numSamples)//输出直接叠加在原块上
 		{
@@ -170,15 +282,67 @@ namespace Dirtynth
 
 			float voiceDtBase = voicefreq / sampleRate;
 			voiceStateVolume = 0.0;
+
+			/*将被调制的参数指针，以及原始的参数指针打包*/
+			float* paramsArray = reinterpret_cast<float*>(&params);
+			float* origParamsArray = reinterpret_cast<float*>(&paramsInput);
+			float* paramTargetPtr[NumEnvelopes] = { nullptr };
+			float* paramOriginalValue[NumEnvelopes] = { nullptr };
+			for (int j = 0; j < NumEnvelopes; ++j)
+			{
+				int targetParamIdx = params.enveParams[j].enveTarget;
+				if (targetParamIdx >= 0 && targetParamIdx < sizeof(DirtynthParams) / sizeof(float))
+				{
+					paramTargetPtr[j] = &paramsArray[targetParamIdx];
+					paramOriginalValue[j] = &origParamsArray[targetParamIdx];
+				}
+				else
+				{
+					paramTargetPtr[j] = nullptr;
+					paramOriginalValue[j] = nullptr;
+				}
+			}
+
 			for (int i = 0; i < numSamples; ++i)
 			{
 				sampleCount++;
 				if (sampleCount >= EnvelopeUpdateInterval)
 				{
 					sampleCount = 0;
-					EnvelopeStep(enves);
-					params = paramsInput;
-					ParamsApplyEnvelope(params, enves);
+					for (int j = 0; j < NumEnvelopes; ++j) enves[j]->Step();
+					//根据enveTarget和enveAmount修改params
+					for (int j = 0; j < NumEnvelopes; ++j)
+					{
+						if (paramTargetPtr[j] != nullptr)
+							*paramTargetPtr[j] = *paramOriginalValue[j] + enves[j]->GetValue() * params.enveParams[j].enveAmount;
+					}
+					//检查oscillator的intMagtable是否需要更新
+					if (osc1MutantTaskID == -1 && osc1.IsSwapTablePrepared())
+					{
+						osc1MutantTaskID = mutantThreadPool->SubmitMutantTask(
+							params.osc1Params.oscWtPreset, params.osc1Params.oscWtPos,
+							selectedOsc1MutantAType, params.osc1Params.mutantA.p1, params.osc1Params.mutantA.p2, params.osc1Params.mutantA.p3,
+							selectedOsc1MutantBType, params.osc1Params.mutantB.p1, params.osc1Params.mutantB.p2, params.osc1Params.mutantB.p3,
+							osc1.GetNextIntMagtable(), WTOscillator::TableWidth);
+					}
+					if (osc2MutantTaskID == -1 && osc2.IsSwapTablePrepared())
+					{
+						osc2MutantTaskID = mutantThreadPool->SubmitMutantTask(
+							params.osc2Params.oscWtPreset, params.osc2Params.oscWtPos,
+							selectedOsc2MutantAType, params.osc2Params.mutantA.p1, params.osc2Params.mutantA.p2, params.osc2Params.mutantA.p3,
+							selectedOsc2MutantBType, params.osc2Params.mutantB.p1, params.osc2Params.mutantB.p2, params.osc2Params.mutantB.p3,
+							osc2.GetNextIntMagtable(), WTOscillator::TableWidth);
+					}
+					if (osc1MutantTaskID != -1 && mutantThreadPool->GetTaskState(osc1MutantTaskID) == 0)
+					{
+						osc1.SetFillCompleteFlag();
+						osc1MutantTaskID = -1;
+					}
+					if (osc2MutantTaskID != -1 && mutantThreadPool->GetTaskState(osc2MutantTaskID) == 0)
+					{
+						osc2.SetFillCompleteFlag();
+						osc2MutantTaskID = -1;
+					}
 				}
 				/*OSC PROCESS*/
 				float osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune) / 12.0);
@@ -211,10 +375,16 @@ namespace Dirtynth
 				sampleCount = EnvelopeUpdateInterval;//立即更新包络
 			}
 		}
-		Envelope** GetSelectedEnvelops(DirtynthParams& params)//根据params返回当前选中的包络指针数组，方便外部函数调用
+		std::array<Envelope*, NumEnvelopes> GetSelectedEnvelops(const DirtynthParams& params)//根据params返回当前选中的包络指针数组，方便外部函数调用
 		{
-			Envelope* enves[NumEnvelopes];
-			for (int i = 0; i < NumEnvelopes; ++i) enves[i] = regEnves[i][params.enveParams[i].enveType].get();
+			std::array<Envelope*, NumEnvelopes> enves{};
+			for (int i = 0; i < NumEnvelopes; ++i)
+			{
+				int envelopeType = static_cast<int>(params.enveParams[i].enveType);
+				if (envelopeType < 0)envelopeType = 0;
+				if (envelopeType >= RegEnvelope::NumRegEnvelope)envelopeType = RegEnvelope::NumRegEnvelope - 1;
+				enves[i] = regEnves[i][envelopeType].get();
+			}
 			return enves;
 		}
 	};
@@ -233,15 +403,19 @@ namespace Dirtynth
 	{
 	public:
 	private:
+		MutantThreadPool mutantThreadPool;
 		DirtynthParams params;
-		WavetableGenerator wtgen;
-		RegMutant regMutant;
 		DirtynthVoice voices[MaxPolyphony];
 		int voiceBelongNote[MaxPolyphony] = { -1 };//记录每个voice当前属于哪个midi note，-1表示不属于任何note了
 		int isVoiceActive[MaxPolyphony] = { 0 };
 		int nextVoiceIdx = 0;//最坏情况下使用循环分配voice。一般情况优先寻找不活动的voice
 		int midiNumNoteOn = 0;//用于检测是否有按键按下，进而决定是否更新包络状态
 	public:
+		Dirtynth()
+		{
+			for (int i = 0; i < MaxPolyphony; ++i)
+				voices[i].SetMutantThreadPool(&mutantThreadPool);
+		}
 		void SetSampleRate(float sr)
 		{
 			for (int i = 0; i < MaxPolyphony; ++i)
@@ -270,7 +444,7 @@ namespace Dirtynth
 			//先处理全局模式
 			for (int i = 0; i < MaxPolyphony; ++i)
 			{
-				Envelope** enves = voices[i].GetSelectedEnvelops(params);
+				auto enves = voices[i].GetSelectedEnvelops(params);
 				for (int j = 0; j < NumEnvelopes; ++j)
 				{
 					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnFirstNoteOn)//全局，按下第一个键开始
@@ -281,7 +455,7 @@ namespace Dirtynth
 				}
 			}
 			//再处理复音模式
-			Envelope** enves = voice.GetSelectedEnvelops(params);
+			auto enves = voice.GetSelectedEnvelops(params);
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
 				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
@@ -293,7 +467,7 @@ namespace Dirtynth
 			//先处理全局模式
 			for (int i = 0; i < MaxPolyphony; ++i)
 			{
-				Envelope** enves = voices[i].GetSelectedEnvelops(params);
+				auto enves = voices[i].GetSelectedEnvelops(params);
 				for (int j = 0; j < NumEnvelopes; ++j)
 				{
 					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnFirstNoteOn ||
@@ -303,7 +477,7 @@ namespace Dirtynth
 				}
 			}
 			//再处理复音模式
-			Envelope** enves = voice.GetSelectedEnvelops(params);
+			auto enves = voice.GetSelectedEnvelops(params);
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
 				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
@@ -335,7 +509,7 @@ namespace Dirtynth
 						{
 							midiNumNoteOn--;//从0结束
 							if (midiNumNoteOn < 0)midiNumNoteOn = 0;
-							DirtynthVoice& thisVoice = voices[i];
+							DirtynthVoice& thisVoice = voices[j];
 							thisVoice.SetVoiceState(false, 0.0, 0.0);//!voice在note off时不会改变内置freq和velo!
 							UpdateAllVoiceEnvelope_NoteOff(voices[j]);
 							voiceBelongNote[j] = -1;
