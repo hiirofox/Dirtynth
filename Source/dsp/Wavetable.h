@@ -325,8 +325,8 @@ namespace MinusMKI
 	public:
 		constexpr static int TableWidth = 8192;
 	private:
-		IIRBlep2::IIRBlep blit;//只使用其blit功能
-		//Lagrange4thBlep blit;//其实也不错
+		//IIRBlep2::IIRBlep blit;//只使用其blit功能
+		Lagrange4thBlep blit;//其实也不错
 
 		float intMagtable1[TableWidth * 2] = { 0 };
 		float intMagtable2[TableWidth * 2] = { 0 };

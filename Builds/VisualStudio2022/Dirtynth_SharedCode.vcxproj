@@ -2837,6 +2837,11 @@
     <ClInclude Include="..\..\Source\ui\LM_slider.h"/>
     <ClInclude Include="..\..\Source\ui\LMKnobDirect.h"/>
     <ClInclude Include="..\..\Source\ui\DirtynthUI.h"/>
+    <ClInclude Include="..\..\Source\dsp\effects\chorus\lmchorus.h"/>
+    <ClInclude Include="..\..\Source\dsp\effects\delay\lmdelay.h"/>
+    <ClInclude Include="..\..\Source\dsp\effects\reverb\VintageHall.h"/>
+    <ClInclude Include="..\..\Source\dsp\effects\effects.h"/>
+    <ClInclude Include="..\..\Source\dsp\presets\presets.h"/>
     <ClInclude Include="..\..\Source\dsp\DirtySystem.h"/>
     <ClInclude Include="..\..\Source\dsp\Envelope.h"/>
     <ClInclude Include="..\..\Source\dsp\Filter.h"/>

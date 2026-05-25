@@ -552,8 +552,8 @@ namespace Dirtynth
 						ParamToCutoff(params.filt2Params.cutoff) * cutoffTrackValue,
 						ParamToReso(params.filt2Params.reso), params.filt2Params.morph);
 					//¸üÐÂoscillatorÆµÂÊ
-					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 1200.0) / 12.0);
-					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 1200.0) / 12.0);
+					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 100.0) / 12.0);
+					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 100.0) / 12.0);
 				}
 				/*OSC PROCESS*/
 				float osc1out = osc1.ProcessSample(osc1dt);
@@ -751,7 +751,7 @@ namespace Dirtynth
 			{
 				voices[i].ProcessBlockAccumulating(params, outl, outr, numSamples);
 			}
-			float masterVol = params.masterVol * 0.00125;
+			float masterVol = params.masterVol * 0.005;
 			for (int i = 0; i < numSamples; ++i)
 			{
 				outl[i] *= masterVol;

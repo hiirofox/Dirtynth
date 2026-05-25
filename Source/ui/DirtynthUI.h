@@ -6,6 +6,7 @@
 #include "LM_slider.h"
 #include "LMKnobDirect.h"
 #include "../dsp/DirtySystem.h"
+#include "../dsp/presets/presets.h"
 
 using namespace Dirtynth;
 
@@ -70,20 +71,39 @@ private:
 	LMKnobDirect masterVol;
 	LMKnobDirect octave;
 	LMCombox preset;
+	std::function<void()> onPresetLoaded;
 
 	void SendParams()
 	{
 		instance.SetParams(params);
 	}
 public:
-	GlobalSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
+	GlobalSetting(DirtynthParams& params, DirtynthSystem& instance, std::function<void()> onPresetLoaded = {})
+		: params(params), instance(instance), onPresetLoaded(std::move(onPresetLoaded))
 	{
 		masterVol.setText("Master");
 		masterVol.ParamLink(0.0f, 1.0f, 0.5f, params.masterVol, [this](float x) { this->params.masterVol = x; SendParams(); });
 		octave.setText("Octave");
 		octave.ParamLink(0.0f, 1.0f, 0.5f, params.octave, [this](float x) { this->params.octave = x; SendParams(); });
-		preset.addItem("--Init--", 1);
+		preset.addItem("--Preset--", 1);
+		for (int i = 0; i < DirtynthPresets::GetNumPresets(); ++i)
+		{
+			auto presetPack = DirtynthPresets::GetLocalPresets(i);
+			preset.addItem(juce::String(std::get<0>(presetPack)), i + 2);
+		}
 		preset.setSelectedID(1);
+		preset.setChangedCallback([this](int selectedID)
+			{
+				const int presetIndex = selectedID - 2;
+				if (presetIndex < 0 || presetIndex >= DirtynthPresets::GetNumPresets())
+					return;
+
+				auto presetPack = DirtynthPresets::GetLocalPresets(presetIndex);
+				this->params = std::get<1>(presetPack);
+				SendParams();
+				if (this->onPresetLoaded)
+					this->onPresetLoaded();
+			});
 		addAndMakeVisible(masterVol);
 		addAndMakeVisible(octave);
 		addAndMakeVisible(preset);
@@ -93,7 +113,6 @@ public:
 	{
 		masterVol.setValue(params.masterVol);
 		octave.setValue(params.octave);
-		preset.setSelectedID(1);
 	}
 
 	void resized() override
@@ -161,7 +180,7 @@ public:
 
 		wtpos.ParamLink(0.0f, 1.0f, 0.5f, oscParams.oscWtPos, [this](float x) { GetOscParams().oscWtPos = x; SendParams(); });
 		pitch.ParamLink(-48.0f, 48.0f, 0.0f, oscParams.oscPitch, [this](float x) { GetOscParams().oscPitch = x; SendParams(); });
-		detune.ParamLink(-1200.0f, 1200.0f, 0.0f, oscParams.oscDetune, [this](float x) { GetOscParams().oscDetune = x; SendParams(); });
+		detune.ParamLink(-100.0, 100.0f, 0.0f, oscParams.oscDetune, [this](float x) { GetOscParams().oscDetune = x; SendParams(); });
 		pA1.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p1, [this](float x) { GetOscParams().mutantA.p1 = x; SendParams(); });
 		pA2.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p2, [this](float x) { GetOscParams().mutantA.p2 = x; SendParams(); });
 		pA3.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p3, [this](float x) { GetOscParams().mutantA.p3 = x; SendParams(); });
@@ -567,7 +586,7 @@ public:
 	DirtynthUI(DirtynthSystem& instance)
 		: instance(instance),
 		params(instance.GetParams()),
-		globalSetting(params, instance),
+		globalSetting(params, instance, [this]() { RefreshFromParams(); }),
 		oscModulatorSetting(params, instance),
 		filterModulatorSetting(params, instance),
 		osc1Setting(params, instance, 1),

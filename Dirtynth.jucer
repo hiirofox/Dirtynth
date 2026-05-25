@@ -13,6 +13,21 @@
         <FILE id="c1zwzu" name="DirtynthUI.h" compile="0" resource="0" file="Source/ui/DirtynthUI.h"/>
       </GROUP>
       <GROUP id="{CC3BDEF2-88EF-CDA1-2F21-32E658B472C8}" name="dsp">
+        <GROUP id="{B5870AA6-6489-B3E9-C062-95CFA67452A1}" name="effects">
+          <GROUP id="{54FAB143-667B-D34C-14B2-43844EA681CF}" name="chorus">
+            <FILE id="YAmBmV" name="lmchorus.h" compile="0" resource="0" file="Source/dsp/effects/chorus/lmchorus.h"/>
+          </GROUP>
+          <GROUP id="{33F7BBA2-A9F3-050D-F09D-7A193B3B04D1}" name="delay">
+            <FILE id="WFacVD" name="lmdelay.h" compile="0" resource="0" file="Source/dsp/effects/delay/lmdelay.h"/>
+          </GROUP>
+          <GROUP id="{00682942-9005-6B84-6EB2-91109FCDBB4C}" name="reverb">
+            <FILE id="yU6z1t" name="VintageHall.h" compile="0" resource="0" file="Source/dsp/effects/reverb/VintageHall.h"/>
+          </GROUP>
+          <FILE id="XYYZQq" name="effects.h" compile="0" resource="0" file="Source/dsp/effects/effects.h"/>
+        </GROUP>
+        <GROUP id="{648EFEA0-C4EF-B649-3FED-53DB02A9128E}" name="presets">
+          <FILE id="Fp3wuS" name="presets.h" compile="0" resource="0" file="Source/dsp/presets/presets.h"/>
+        </GROUP>
         <FILE id="GArvah" name="DirtySystem.h" compile="0" resource="0" file="Source/dsp/DirtySystem.h"/>
         <FILE id="Lsf1Bt" name="Envelope.h" compile="0" resource="0" file="Source/dsp/Envelope.h"/>
         <FILE id="MxBvhD" name="Filter.h" compile="0" resource="0" file="Source/dsp/Filter.h"/>

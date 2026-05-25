@@ -5,6 +5,21 @@
     <Filter Include="Dirtynth\Source\ui">
       <UniqueIdentifier>{3918F377-0B98-FA3C-58CC-82D8C95194FA}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dirtynth\Source\dsp\effects\chorus">
+      <UniqueIdentifier>{7654CDF0-1AC7-616C-1A4F-043908CAB4AC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dirtynth\Source\dsp\effects\delay">
+      <UniqueIdentifier>{4468E5BB-6604-84BF-D00D-DB6967FA7F47}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dirtynth\Source\dsp\effects\reverb">
+      <UniqueIdentifier>{A478B3D5-6E13-312A-6880-FC4069585E50}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dirtynth\Source\dsp\effects">
+      <UniqueIdentifier>{2D088482-B573-4A2E-12BC-F95A9C491778}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dirtynth\Source\dsp\presets">
+      <UniqueIdentifier>{B868AE77-BD06-4EF9-B901-35725486E531}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Dirtynth\Source\dsp">
       <UniqueIdentifier>{FAA22066-CEA8-95CE-4600-FEF1BD2C248D}</UniqueIdentifier>
     </Filter>
@@ -3554,6 +3569,21 @@
     </ClInclude>
     <ClInclude Include="..\..\Source\ui\DirtynthUI.h">
       <Filter>Dirtynth\Source\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\effects\chorus\lmchorus.h">
+      <Filter>Dirtynth\Source\dsp\effects\chorus</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\effects\delay\lmdelay.h">
+      <Filter>Dirtynth\Source\dsp\effects\delay</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\effects\reverb\VintageHall.h">
+      <Filter>Dirtynth\Source\dsp\effects\reverb</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\effects\effects.h">
+      <Filter>Dirtynth\Source\dsp\effects</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\presets\presets.h">
+      <Filter>Dirtynth\Source\dsp\presets</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Source\dsp\DirtySystem.h">
       <Filter>Dirtynth\Source\dsp</Filter>
