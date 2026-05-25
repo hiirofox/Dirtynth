@@ -325,8 +325,8 @@ namespace MinusMKI
 	public:
 		constexpr static int TableWidth = 8192;
 	private:
-		//IIRBlep2::IIRBlep blit;//只使用其blit功能
-		Lagrange4thBlep blit;//其实也不错
+		IIRBlep2::IIRBlep blit;//只使用其blit功能
+		//Lagrange4thBlep blit;//其实也不错
 
 		float intMagtable1[TableWidth * 2] = { 0 };
 		float intMagtable2[TableWidth * 2] = { 0 };
@@ -335,7 +335,7 @@ namespace MinusMKI
 		float* intMagtableB = intMagtable2;
 		float* nextIntMagtable = intMagtable3;
 
-		float swapInterval = 1.0 / 160.0;//cpu你幸苦了！
+		float swapInterval = 1.0 / 256.0;//cpu你幸苦了！
 		float sampleCounter = 0;
 		int isSwapPrepared = 0;
 
@@ -414,9 +414,16 @@ namespace MinusMKI
 			int pos = TableWidth;
 			int len = TableWidth;
 			//const float avge = 1.0 / sqrtf(2.0);
+			float dc = 0;
 			for (int i = 0; i < TableWidth; ++i)
 			{
 				intMagtable[i] = source[i];
+				dc += source[i];
+			}
+			dc /= TableWidth;
+			for (int i = 0; i < TableWidth; ++i)
+			{
+				intMagtable[i] -= dc;
 			}
 			for (int m = 0; m < n; ++m)
 			{

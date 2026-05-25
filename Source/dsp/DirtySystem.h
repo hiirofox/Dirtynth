@@ -9,7 +9,7 @@
 namespace Dirtynth
 {
 	using namespace MinusMKI;
-	
+
 	constexpr static int NumEnvelopes = 6;
 	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好
 	constexpr static int MaxPolyphony = 8;
@@ -375,7 +375,7 @@ namespace Dirtynth
 						taskFlags[i].store(2);
 					}
 				}
-				std::this_thread::sleep_for(std::chrono::nanoseconds(4000));//cpu你幸苦了！
+				std::this_thread::sleep_for(std::chrono::nanoseconds(20000));//cpu你幸苦了！
 			}
 		}
 	};
@@ -498,6 +498,7 @@ namespace Dirtynth
 
 			/*PROCESSOR*/
 			float voiceDtBase = voicefreq / sampleRate;
+			float pmBase = voiceDtBase * 10.0;
 			voiceStateVolume = 0.0;
 			for (int i = 0; i < numSamples; ++i)
 			{
@@ -551,12 +552,12 @@ namespace Dirtynth
 						ParamToCutoff(params.filt2Params.cutoff) * cutoffTrackValue,
 						ParamToReso(params.filt2Params.reso), params.filt2Params.morph);
 					//更新oscillator频率
-					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 100.0) / 12.0);
-					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 100.0) / 12.0);
+					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 1200.0) / 12.0);
+					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 1200.0) / 12.0);
 				}
 				/*OSC PROCESS*/
 				float osc1out = osc1.ProcessSample(osc1dt);
-				float osc2out = osc2.ProcessSample(osc2dt + params.pmDepth * voiceDtBase * osc1out);//乘voiceDtBase让pm输入幅度与频率去相关
+				float osc2out = osc2.ProcessSample(osc2dt + params.pmDepth * pmBase * osc1out);//乘voiceDtBase让pm输入幅度与频率去相关
 				float oscout = (osc1out + (osc2out - osc1out) * params.oscMix) * params.oscAmp;
 				/*FILTER PROCESS*/
 				float filt1out = filter1.ProcessSample(oscout);
