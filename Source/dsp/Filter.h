@@ -332,7 +332,7 @@ namespace MinusMKI
 	public:
 		inline float ProcessSample(float x) override final
 		{
-			realDelayTime += 0.05 * (delayTime - realDelayTime);
+			realDelayTime += 0.01 * (delayTime - realDelayTime);
 			int idt = realDelayTime;
 			float kfrac = realDelayTime - idt;
 			int writePos = pos % MaxBufferSize;

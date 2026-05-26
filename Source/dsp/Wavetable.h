@@ -429,16 +429,15 @@ namespace MinusMKI
 			{
 				int nextLen = len >> 1;
 				int curPos = pos;
-				//const float avge = 1.0f / cosf(float(M_PI) / float(len));
-				float cs = cosf(float(M_PI) / float(len));
-				const float avge = 1.0f / (cs * cs);
+				const float avge = 1.0f / cosf(float(M_PI) / float(len));
+				//float cs = cosf(float(M_PI) / float(len));
+				//const float avge = 1.0f / (cs * cs);
 				for (int i = 0; i < nextLen; ++i)
 				{
-					/*
-					float a = intMagtable[prevPos + i * 2];
+					float a = intMagtable[prevPos + i * 2 + 0];
 					float b = intMagtable[prevPos + i * 2 + 1];
 					intMagtable[curPos + i] = (a + b) * avge;
-					*/
+					/*
 					int p0 = i * 2;
 					int pm = p0 - 1;
 					int pp = p0 + 1;
@@ -448,6 +447,7 @@ namespace MinusMKI
 					float b = intMagtable[prevPos + pm];
 					float c = intMagtable[prevPos + pp];
 					intMagtable[curPos + i] = (a + (b + c) * 0.5f) * avge;
+					*/
 				}
 				prevPos = curPos;
 				pos += nextLen;
@@ -526,7 +526,8 @@ namespace MinusMKI
 			else//高频模式
 			{
 				int n = ctrz(abs(dt * TableWidth));
-				n -= 2; //用前2层表能有效减小跨表相位不连续
+				//n -= 2; //用前2层表能有效减小跨表相位不连续
+				//注意这个n-=k是一个性能消耗项，如果不在乎跨表不连续（尤其是相位调制，其次是滑音），可以注释掉
 				if (n < 0)n = 0;
 				int tableStart = (n == 0 ? 0 : TableWidth * 2 - (TableWidth >> (n - 1)));
 				float* selectedTableA = intMagtableA + tableStart;
@@ -610,7 +611,7 @@ namespace MinusMKI
 			if (t < 0.0)t += 1.0;
 			return mag * selectedTableWidth;
 		}
-		float ProcessSample(float dt) { return ProcessSampleHQ(dt); }
+		float ProcessSample(float dt) { return ProcessSampleLQ(dt); }
 		void SetStartPhase(float phase) { this->t = phase; }
 	};
 
