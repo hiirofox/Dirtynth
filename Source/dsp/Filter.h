@@ -313,6 +313,7 @@ namespace MinusMKI
 		float realDelayTime = 1.0;
 		float delayTime = 1.0;
 		float fb = 0.0;
+		float gainfix = 1.0;
 		float morph = 0;
 
 		float z = 0;
@@ -332,6 +333,7 @@ namespace MinusMKI
 	public:
 		inline float ProcessSample(float x) override final
 		{
+			x *= gainfix;
 			realDelayTime += 0.01 * (delayTime - realDelayTime);
 			int idt = realDelayTime;
 			float kfrac = realDelayTime - idt;
@@ -348,7 +350,7 @@ namespace MinusMKI
 			float out = out_Add + (out_Sub - out_Add) * morph;
 
 			buf[writePos] = ProcessAPF(ProcessDeDC(xWithFB), (1.0 - kfrac) / (1.0 + kfrac));
-			return out * 0.5;
+			return out;
 		}
 		void Reset() override
 		{
@@ -367,6 +369,8 @@ namespace MinusMKI
 			if (fb < 0)fb = 0;
 			if (fb > 0.999)fb = 0.999;
 			this->morph = morph;
+
+			gainfix = (1.0 - sqrtf(fb)) * 0.707;
 		}
 	};
 
@@ -403,7 +407,8 @@ namespace MinusMKI
 		{
 			reso = sqrtf(sqrtf(reso));
 			float morphGain = 1.0f + 3.0f * cheapSinPi(morph);
-			gainFix = morphGain / (reso * reso);
+			//gainFix = morphGain / (reso * reso);
+			gainFix = 1.0;
 			morph = morph * morph + 1.0;
 			cf1.SetFilterParams(cutoff * (morph *= morph), reso, 0);
 			cf2.SetFilterParams(cutoff * (morph *= morph), reso, 0);
