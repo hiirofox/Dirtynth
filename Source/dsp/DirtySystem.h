@@ -544,20 +544,24 @@ namespace Dirtynth
 						osc2MutantTaskID = -1;
 					}
 					//根据params更新滤波器参数
-					float cutoffTrackValue = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
+					float cutoffTrackValue1 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
+					float cutoffTrackValue2 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
 					filter1.SetFilterParams(
-						ParamToCutoff(params.filt1Params.cutoff) * cutoffTrackValue,
+						ParamToCutoff(params.filt1Params.cutoff) * cutoffTrackValue1,
 						ParamToReso(params.filt1Params.reso), params.filt1Params.morph);
 					filter2.SetFilterParams(
-						ParamToCutoff(params.filt2Params.cutoff) * cutoffTrackValue,
+						ParamToCutoff(params.filt2Params.cutoff) * cutoffTrackValue2,
 						ParamToReso(params.filt2Params.reso), params.filt2Params.morph);
 					//更新oscillator频率
-					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 100.0) / 12.0);
-					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 100.0) / 12.0);
+					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune) / 12.0);
+					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune) / 12.0);
 				}
 				/*OSC PROCESS*/
 				float osc1out = osc1.ProcessSample(osc1dt);
-				float osc2out = osc2.ProcessSample(osc2dt + params.pmDepth * pmBase * osc1out);//乘voiceDtBase让pm输入幅度与频率去相关
+				float osc1pmv = params.pmDepth /* *pmBase* 100.0*/ * osc1out;//乘voiceDtBase让pm输入幅度与频率去相关
+				if (osc1pmv > 60.0)osc1pmv = 60.0;
+				if (osc1pmv < -60.0)osc1pmv = -60.0;
+				float osc2out = osc2.ProcessSample(osc2dt, osc1pmv);
 				float oscout = (osc1out + (osc2out - osc1out) * params.oscMix) * params.oscAmp;
 				/*FILTER PROCESS*/
 				float filt1out = filter1.ProcessSample(oscout);

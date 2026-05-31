@@ -131,7 +131,7 @@ namespace DirtynthPresets
 			params.osc1Params.mutantB.p2 = 0.030864292f; // 10 Osc1 MutB P2
 			params.osc1Params.mutantB.p3 = 0.271605089f; // 11 Osc1 MutB P3
 			params.osc1Params.oscPitch = -0.000012207f; // 12 Osc1 Pitch
-			params.osc1Params.oscDetune = -11.0f; // 13 Osc1 Detune
+			params.osc1Params.oscDetune = -11.0f / 100.0f; // 13 Osc1 Detune
 			params.osc2Params.oscWtPreset = 0.0f; // 14 Osc2 Wt Preset
 			params.osc2Params.oscWtPos = 0.91f; // 15 Osc2 Wt Pos
 			params.osc2Params.mutantA.mutantType = 2.0f; // 16 Osc2 MutA Type
@@ -143,7 +143,7 @@ namespace DirtynthPresets
 			params.osc2Params.mutantB.p2 = 0.0f; // 22 Osc2 MutB P2
 			params.osc2Params.mutantB.p3 = 0.0f; // 23 Osc2 MutB P3
 			params.osc2Params.oscPitch = 36.0f; // 24 Osc2 Pitch
-			params.osc2Params.oscDetune = -13.864189996f; // 25 Osc2 Detune
+			params.osc2Params.oscDetune = -13.864189996f / 100.0f; // 25 Osc2 Detune
 			params.pmDepth = 0.0f; // 26 PMDepth
 			params.oscMix = 0.104938253f; // 27 OscMix
 			params.oscAmp = 0.0f; // 28 OscAmp
@@ -248,7 +248,7 @@ namespace DirtynthPresets
 			params.osc2Params.mutantB.p2 = 0.0f; // 22 Osc2 MutB P2
 			params.osc2Params.mutantB.p3 = 0.0f; // 23 Osc2 MutB P3
 			params.osc2Params.oscPitch = 7.0f; // 24 Osc2 Pitch
-			params.osc2Params.oscDetune = -7.0f; // 25 Osc2 Detune
+			params.osc2Params.oscDetune = -7.0f / 100.0f; // 25 Osc2 Detune
 			params.pmDepth = 0.0f; // 26 PMDepth
 			params.oscMix = 0.493827057f; // 27 OscMix
 			params.oscAmp = 0.0f; // 28 OscAmp
@@ -341,7 +341,7 @@ namespace DirtynthPresets
 			params.osc1Params.mutantB.p2 = 0.44f; // 10 Osc1 MutB P2
 			params.osc1Params.mutantB.p3 = 0.2f; // 11 Osc1 MutB P3
 			params.osc1Params.oscPitch = 0.0f; // 12 Osc1 Pitch
-			params.osc1Params.oscDetune = -9.0f; // 13 Osc1 Detune
+			params.osc1Params.oscDetune = -9.0f / 100.0f; // 13 Osc1 Detune
 			params.osc2Params.oscWtPreset = 0.0f; // 14 Osc2 Wt Preset
 			params.osc2Params.oscWtPos = 0.82f; // 15 Osc2 Wt Pos
 			params.osc2Params.mutantA.mutantType = 3.0f; // 16 Osc2 MutA Type
@@ -353,7 +353,7 @@ namespace DirtynthPresets
 			params.osc2Params.mutantB.p2 = 0.3f; // 22 Osc2 MutB P2
 			params.osc2Params.mutantB.p3 = 0.22f; // 23 Osc2 MutB P3
 			params.osc2Params.oscPitch = 0.0f; // 24 Osc2 Pitch
-			params.osc2Params.oscDetune = 11.0f; // 25 Osc2 Detune
+			params.osc2Params.oscDetune = 11.0f / 100.0f; // 25 Osc2 Detune
 			params.pmDepth = 0.0f; // 26 PMDepth
 			params.oscMix = 0.439753096f; // 27 OscMix
 			params.oscAmp = 0.0f; // 28 OscAmp
@@ -458,7 +458,7 @@ namespace DirtynthPresets
 			params.osc2Params.mutantB.p2 = 0.0f; // 22 Osc2 MutB P2
 			params.osc2Params.mutantB.p3 = 0.0f; // 23 Osc2 MutB P3
 			params.osc2Params.oscPitch = -12.0f; // 24 Osc2 Pitch
-			params.osc2Params.oscDetune = -3.0f; // 25 Osc2 Detune
+			params.osc2Params.oscDetune = -3.0f / 100.0f; // 25 Osc2 Detune
 			params.pmDepth = 0.0f; // 26 PMDepth
 			params.oscMix = 0.687901315f; // 27 OscMix
 			params.oscAmp = 0.0f; // 28 OscAmp

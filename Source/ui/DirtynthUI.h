@@ -180,7 +180,7 @@ public:
 
 		wtpos.ParamLink(0.0f, 1.0f, 0.5f, oscParams.oscWtPos, [this](float x) { GetOscParams().oscWtPos = x; SendParams(); });
 		pitch.ParamLink(-48.0f, 48.0f, 0.0f, oscParams.oscPitch, [this](float x) { GetOscParams().oscPitch = x; SendParams(); });
-		detune.ParamLink(-100.0, 100.0f, 0.0f, oscParams.oscDetune, [this](float x) { GetOscParams().oscDetune = x; SendParams(); });
+		detune.ParamLink(-1.0, 1.0f, 0.0f, oscParams.oscDetune, [this](float x) { GetOscParams().oscDetune = x; SendParams(); });
 		pA1.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p1, [this](float x) { GetOscParams().mutantA.p1 = x; SendParams(); });
 		pA2.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p2, [this](float x) { GetOscParams().mutantA.p2 = x; SendParams(); });
 		pA3.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p3, [this](float x) { GetOscParams().mutantA.p3 = x; SendParams(); });
