@@ -87,7 +87,7 @@ namespace MinusMKI
 	public:
 		void Apply(float* table, int numSamples) override
 		{
-			float dt = MaxFreqX * depth;
+			float dt = (MaxFreqX - 1.0) * depth + 1.0;
 			float t = 0;
 			float st = dt * numSamples;
 			float smooth1 = expf(-smooth * 12.0);
@@ -631,6 +631,7 @@ namespace MinusMKI
 		{
 			Generate(0);
 		}
+		constexpr static int NumWavetablePresets = 1;
 		void Generate(int preset)
 		{
 			const float normv = 1.0 / TableWidth;
@@ -638,7 +639,7 @@ namespace MinusMKI
 			{
 				for (int j = 0; j < TableHeight; ++j)
 				{
-					float y = (float)j / TableHeight;
+					float y = 1.0 - (float)j / TableHeight;
 					tmpre[0] = tmpim[0] = 0;
 					float totenergy = 0;
 					for (int i = 1; i < TableWidth / 2; ++i)

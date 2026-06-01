@@ -11,6 +11,8 @@ namespace Dirtynth
 	using namespace MinusMKI;
 
 	constexpr static int NumEnvelopes = 6;
+	constexpr static int NumEffects = 2;
+
 	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好
 	constexpr static int MaxPolyphony = 8;
 	constexpr static int NumMutantThreads = 2;//根据平台cpu填
@@ -69,127 +71,201 @@ namespace Dirtynth
 		}
 	};
 
-
-	struct DirtynthParams
+	/*参数系统*/
+	struct DirtynthParams //这次用自然单位，不用归一化单位
 	{
-		float masterVol = 0.5;
-		float octave = 0.5;
+		float masterVol = 0;//-60dB->12dB def:0
+		float octave = 0;//-4->4 def:0
 
 		struct OscParams
 		{
-			float oscWtPreset = 0;//int
-			float oscWtPos = 0.0;
+			float/*int*/ oscWtPreset = 0;//0->WavetableGenerator::NumWavetablePresets-1 def:0
+			float oscWtPos = 0.0;//0->1 def:0
 			struct MutantParams
 			{
-				float mutantType = 0;//int
-				float p1 = 0, p2 = 0, p3 = 0;
+				float/*int*/ mutantType = 0;//0->RegMutant::NumRegMutant-1 def:0
+				float p1 = 0, p2 = 0, p3 = 0;//0->1 def:0
 			}mutantA, mutantB;
-			float oscPitch = 0.0;
-			float oscDetune = 0.0;
+			float oscPitch = 0.0; //-48->48 def:0
+			float oscDetune = 0.0; //-100->100 def:0
 		}osc1Params, osc2Params;
-		float pmDepth = 0.0;
-		float oscMix = 0.0;
-		float oscAmp = 0.0;
+		float pmDepth = 0.0; //0->100 def:0
+		float osc1gain = 1.0; //0->1 def:0
+		float osc2gain = 1.0; //0->1 def:0
+
 		struct FiltParams
 		{
-			float type = 0;//int
-			float cutoff = 0.0;
-			float keyTrack = 0.0;
-			float reso = 0.0;
-			float morph = 0.0;
+			float/*int*/ type = 0;//0->RegFilter::NumRegFilter-1 def:0
+			float cutoff = 0.0; //0->22000 def:22000
+			float keyTrack = 0.0; //0->1 def:0
+			float reso = 0.0; //0.707->40 def:0.707 
+			float morph = 0.0;//0->1 def:0
 		}filt1Params, filt2Params;
-		float filt2SwitchIn = 0.0;
-		float filtMix = 0.0;
+		float filt1gain = 1.0;//0->1 def:0
+		float filt2gain = 1.0;//0->1 def:0
+		float outputAmp = 1.0;//0->1 def:0
+		float/*int*/ sysTopo = 0.0;//0->3 def:0
+
 		struct EnveParams
 		{
-			float enveType = 0.0;//int
-			float enveMode = 0.0;//int
-			float enveTarget = 0.0;//int
-			float enveAmount = 0.0;
-			float enveP1 = 0.0;
-			float enveP2 = 0.0;
-			float enveP3 = 0.0;
-			float enveP4 = 0.0;
-			float enveP5 = 0.0;
-			float enveP6 = 0.0;
+			float/*int*/ type = 0.0;//0->RegEnvelope::NumRegEnvelope-1 def:0
+			float/*int*/ mode = 0.0;//0->4 def:0
+			float/*int*/ targetID = 0.0;//def:0
+			float amount = 0.0;//0->1 def:0
+			float p1 = 0.0;//这个根据具体type来定义语义
+			float p2 = 0.0;
+			float p3 = 0.0;
+			float p4 = 0.0;
+			float p5 = 0.0;
+			float p6 = 0.0;
 		}enveParams[NumEnvelopes];
+
+		struct EffectParams
+		{
+			float/*int*/ type = 0;//0->3 def:0
+			float p1 = 0;//这个根据具体type来定义语义
+			float p2 = 0;
+			float p3 = 0;
+			float p4 = 0;
+			float mix = 0.0;//0->1 def:0
+		}effectParams[NumEffects];
 	};
-	struct ParamsNamePack
+	struct DirtynthParamSystem
 	{
-		constexpr static const char* paramsName[] = {
-			"MasterVol",
-			"Octave",
-			"Osc1 Wt Preset",
-			"Osc1 Wt Pos",
-			"Osc1 MutA Type",
-			"Osc1 MutA P1",
-			"Osc1 MutA P2",
-			"Osc1 MutA P3",
-			"Osc1 MutB Type",
-			"Osc1 MutB P1",
-			"Osc1 MutB P2",
-			"Osc1 MutB P3",
-			"Osc1 Pitch",
-			"Osc1 Detune",
-			"Osc2 Wt Preset",
-			"Osc2 Wt Pos",
-			"Osc2 MutA Type",
-			"Osc2 MutA P1",
-			"Osc2 MutA P2",
-			"Osc2 MutA P3",
-			"Osc2 MutB Type",
-			"Osc2 MutB P1",
-			"Osc2 MutB P2",
-			"Osc2 MutB P3",
-			"Osc2 Pitch",
-			"Osc2 Detune",
-			"PMDepth",
-			"OscMix",
-			"OscAmp",
-			"Filt1 Type",
-			"Filt1 Cutoff",
-			"Filt1 KeyTrack",
-			"Filt1 Reso",
-			"Filt1 Morph",
-			"Filt2 Type",
-			"Filt2 Cutoff",
-			"Filt2 KeyTrack",
-			"Filt2 Reso",
-			"Filt2 Morph",
-			"Filt2 SwitchIn",
-			"FiltMix",
-			"Enve1 Type",
-			"Enve1 Mode",
-			"Enve1 Target",
-			"Enve1 Amount",
-			"Enve1 P1","Enve1 P2","Enve1 P3","Enve1 P4","Enve1 P5","Enve1 P6",
-			"Enve2 Type",
-			"Enve2 Mode",
-			"Enve2 Target",
-			"Enve2 Amount",
-			"Enve2 P1","Enve2 P2","Enve2 P3","Enve2 P4","Enve2 P5","Enve2 P6",
-			"Enve3 Type",
-			"Enve3 Mode",
-			"Enve3 Target",
-			"Enve3 Amount",
-			"Enve3 P1","Enve3 P2","Enve3 P3","Enve3 P4","Enve3 P5","Enve3 P6",
-			"Enve4 Type",
-			"Enve4 Mode",
-			"Enve4 Target",
-			"Enve4 Amount",
-			"Enve4 P1","Enve4 P2","Enve4 P3","Enve4 P4","Enve4 P5","Enve4 P6",
-			"Enve5 Type",
-			"Enve5 Mode",
-			"Enve5 Target",
-			"Enve5 Amount",
-			"Enve5 P1","Enve5 P2","Enve5 P3","Enve5 P4","Enve5 P5","Enve5 P6",
-			"Enve6 Type",
-			"Enve6 Mode",
-			"Enve6 Target",
-			"Enve6 Amount",
-			"Enve6 P1","Enve6 P2","Enve6 P3","Enve6 P4","Enve6 P5","Enve6 P6"
+		enum ParamType
+		{
+			Linear = 0,
+			Exp01 = 1,
+			NyquistFreqExp = 2,
+			FilterQ = 3,
+			TimeMsExp = 4
 		};
+		struct ParamDesc
+		{
+			std::string indexName = "index name";
+			std::string name = "display name";
+			int id = 0;
+			int isModulated = 0;
+			ParamType paramType = Linear;
+			float minValue = 0.0;
+			float maxValue = 1.0;
+			float defValue = 0.0;
+		};
+		DirtynthParams ref;
+		static std::map<std::string, int> indexNameIdMap;//索引名字查询id
+		static std::vector<size_t> idOffsetMap;//id查询偏移量，这个用来获取引用
+		int maxIndex = 0;
+		void RegParam(float& paramRef, const std::string& indexName)
+		{
+			size_t offset = reinterpret_cast<char*>(&paramRef) -
+				reinterpret_cast<char*>(&ref);
+			idOffsetMap.push_back(offset);
+			indexNameIdMap[indexName] = maxIndex;
+			maxIndex++;
+		}
+		void BuildParamTable()
+		{
+			indexNameIdMap.clear();
+			idOffsetMap.clear();
+			idOffsetMap.push_back(0);
+			maxIndex = 1;
+			RegParam(ref.masterVol, "masterVol");
+			RegParam(ref.octave, "octave");
+			//osc1
+			RegParam(ref.osc1Params.oscWtPreset, "osc1WtPreset");
+			RegParam(ref.osc1Params.oscWtPos, "osc1WtPos");
+			RegParam(ref.osc1Params.mutantA.mutantType, "osc1MutAType");
+			RegParam(ref.osc1Params.mutantA.p1, "osc1MutAP1");
+			RegParam(ref.osc1Params.mutantA.p2, "osc1MutAP2");
+			RegParam(ref.osc1Params.mutantA.p3, "osc1MutAP3");
+			RegParam(ref.osc1Params.mutantB.mutantType, "osc1MutBType");
+			RegParam(ref.osc1Params.mutantB.p1, "osc1MutBP1");
+			RegParam(ref.osc1Params.mutantB.p2, "osc1MutBP2");
+			RegParam(ref.osc1Params.mutantB.p3, "osc1MutBP3");
+			RegParam(ref.osc1Params.oscPitch, "osc1Pitch");
+			RegParam(ref.osc1Params.oscDetune, "osc1Detune");
+			//osc2
+			RegParam(ref.osc2Params.oscWtPreset, "osc2WtPreset");
+			RegParam(ref.osc2Params.oscWtPos, "osc2WtPos");
+			RegParam(ref.osc2Params.mutantA.mutantType, "osc2MutAType");
+			RegParam(ref.osc2Params.mutantA.p1, "osc2MutAP1");
+			RegParam(ref.osc2Params.mutantA.p2, "osc2MutAP2");
+			RegParam(ref.osc2Params.mutantA.p3, "osc2MutAP3");
+			RegParam(ref.osc2Params.mutantB.mutantType, "osc2MutBType");
+			RegParam(ref.osc2Params.mutantB.p1, "osc2MutBP1");
+			RegParam(ref.osc2Params.mutantB.p2, "osc2MutBP2");
+			RegParam(ref.osc2Params.mutantB.p3, "osc2MutBP3");
+			RegParam(ref.osc2Params.oscPitch, "osc2Pitch");
+			RegParam(ref.osc2Params.oscDetune, "osc2Detune");
+			//osc setting
+			RegParam(ref.pmDepth, "pmDepth");
+			RegParam(ref.osc1gain, "osc1gain");
+			RegParam(ref.osc2gain, "osc2gain");
+			//filt1
+			RegParam(ref.filt1Params.type, "filt1Type");
+			RegParam(ref.filt1Params.cutoff, "filt1Cutoff");
+			RegParam(ref.filt1Params.keyTrack, "filt1KeyTrack");
+			RegParam(ref.filt1Params.reso, "filt1Reso");
+			RegParam(ref.filt1Params.morph, "filt1Morph");
+			//filt2
+			RegParam(ref.filt2Params.type, "filt2Type");
+			RegParam(ref.filt2Params.cutoff, "filt2Cutoff");
+			RegParam(ref.filt2Params.keyTrack, "filt2KeyTrack");
+			RegParam(ref.filt2Params.reso, "filt2Reso");
+			RegParam(ref.filt2Params.morph, "filt2Morph");
+			//filt setting
+			RegParam(ref.filt1gain, "filt1gain");
+			RegParam(ref.filt2gain, "filt2gain");
+			RegParam(ref.outputAmp, "outputAmp");
+			RegParam(ref.sysTopo, "sysTopo");
+			//envelopes
+			for (int i = 0; i < NumEnvelopes; i++)
+			{
+				std::string prefix = "enve" + std::to_string(i + 1);
+				RegParam(ref.enveParams[i].type, prefix + "Type");
+				RegParam(ref.enveParams[i].mode, prefix + "Mode");
+				RegParam(ref.enveParams[i].targetID, prefix + "TargetID");
+				RegParam(ref.enveParams[i].amount, prefix + "Amount");
+				RegParam(ref.enveParams[i].p1, prefix + "P1");
+				RegParam(ref.enveParams[i].p2, prefix + "P2");
+				RegParam(ref.enveParams[i].p3, prefix + "P3");
+				RegParam(ref.enveParams[i].p4, prefix + "P4");
+				RegParam(ref.enveParams[i].p5, prefix + "P5");
+				RegParam(ref.enveParams[i].p6, prefix + "P6");
+			}
+			//effects
+			for (int i = 0; i < NumEffects; i++)
+			{
+				std::string prefix = "effect" + std::to_string(i + 1);
+				RegParam(ref.effectParams[i].type, prefix + "Type");
+				RegParam(ref.effectParams[i].p1, prefix + "P1");
+				RegParam(ref.effectParams[i].p2, prefix + "P2");
+				RegParam(ref.effectParams[i].p3, prefix + "P3");
+				RegParam(ref.effectParams[i].p4, prefix + "P4");
+				RegParam(ref.effectParams[i].mix, prefix + "Mix");
+			}
+		}
+		DirtynthParamSystem()
+		{
+			BuildParamTable();
+		}
+		int SearchID(std::string name)
+		{
+			return indexNameIdMap[name];
+		}
+		float& GetParamRefByID(DirtynthParams& paramsRef, int ID)
+		{
+			return *reinterpret_cast<float*>(
+				reinterpret_cast<char*>(&paramsRef) + idOffsetMap[ID]);
+		}
+		std::vector<ParamDesc> GetParamList(DirtynthParams& paramsRef)
+		{
+			//根据可复用参数的type去生成参数列表，其中indexName不会变，但name可能变，并且min,max,defValue可能变
+			//这个函数是给外部(ui或序列化系统)使用，dsp只使用id索引系统
+			//ui拿到一个参数包，要通过这个函数得到描述
+		}
 	};
+
 	/*TOOLS FUNCTION*/
 	constexpr static float CutoffMin = 20.0;
 	constexpr static float CutoffMax = 22000.0;
