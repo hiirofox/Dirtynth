@@ -6,6 +6,8 @@
 #include "Filter.h"
 #include "Envelope.h"
 
+#include "Cpptools.h"
+
 namespace Dirtynth
 {
 	using namespace MinusMKI;
@@ -132,21 +134,20 @@ namespace Dirtynth
 	};
 	struct DirtynthParamSystem
 	{
-		enum ParamType
+		enum KnobFeelType
 		{
-			Linear = 0,
-			Exp01 = 1,
-			NyquistFreqExp = 2,
-			FilterQ = 3,
-			TimeMsExp = 4
+			Linear = 0,//线性手感
+			Integer = 1,//整数手感，带卡鞘的那种
+			NyquistFreqExp = 2,//滤波器频率旋钮手感，类似指数手感但是特调
+			FilterQ = 3,//Q手感，特调
+			TimeMsExp = 4//毫秒手感，特调
 		};
 		struct ParamDesc
 		{
 			std::string indexName = "index name";
 			std::string name = "display name";
-			int id = 0;
-			int isModulated = 0;
-			ParamType paramType = Linear;
+			bool isModulated = 0;
+			KnobFeelType paramType = Linear;
 			float minValue = 0.0;
 			float maxValue = 1.0;
 			float defValue = 0.0;
@@ -263,6 +264,30 @@ namespace Dirtynth
 			//根据可复用参数的type去生成参数列表，其中indexName不会变，但name可能变，并且min,max,defValue可能变
 			//这个函数是给外部(ui或序列化系统)使用，dsp只使用id索引系统
 			//ui拿到一个参数包，要通过这个函数得到描述
+			std::vector<ParamDesc> descs;
+			descs.push_back({ "masterVol",		"Master",	true,	Linear,		-60.0,	12.0,	0.0 });
+			descs.push_back({ "octave",			"Octave",	true,	Linear,		-4.0,	4.0,	0.0 });
+			int NumWTPreset = WavetableGenerator::NumWavetablePresets - 1;
+			descs.push_back({ "osc1WtPreset",	"WTPreset",	false,	Integer,	0.0,(float)NumWTPreset,0.0 });//到时候UI应该会分组，所以不用强调哪个osc
+			descs.push_back({ "osc2WtPreset",	"WTPreset",	false,	Integer,	0.0,(float)NumWTPreset,0.0 });
+			descs.push_back({ "osc1Pitch",		"Pitch",	true,	Integer,	-48.0,48.0,0.0 });
+			descs.push_back({ "osc2Pitch",		"Pitch",	true,	Integer,	-48.0,48.0,0.0 });
+			descs.push_back({ "osc1Detune",		"Detune",	true,	Linear,		-100.0,100.0,0.0 });
+			descs.push_back({ "osc2Detune",		"Detune",	true,	Linear,		-100.0,100.0,0.0 });
+			auto AutoPushMutantDesc = [&](int osc, int mut) {
+				DirtynthParams::OscParams oscfrom = (osc == 1) ? paramsRef.osc1Params : paramsRef.osc2Params;
+				DirtynthParams::OscParams::MutantParams mutfrom = (mut == 1) ? oscfrom.mutantA : oscfrom.mutantB;
+				int muttype = mutfrom.mutantType;
+				if (muttype < 0)muttype = 0;
+				if (muttype >= RegMutant::NumRegMutant)muttype = RegMutant::NumRegMutant - 1;
+				if (RegMutant::MutantNames[muttype] == "HardSync")
+				{
+					std::string idxname = DirtyTools::OldFormat("osc%dMut%s", osc, mut == 1 ? "A" : "B");
+					descs.push_back({ idxname + "P1","Depth",true,Linear,0.0,1.0,0.0 });
+					descs.push_back({ idxname + "P2","Phase",true,Linear,0.0,1.0,0.0 });
+					descs.push_back({ idxname + "P3","Smooth",true,Linear,0.0,1.0,0.0 });
+				}
+				};
 		}
 		DirtynthParams GetModulatorAmountMultiplier(DirtynthParams param)
 		{
