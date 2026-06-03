@@ -264,6 +264,10 @@ namespace Dirtynth
 			//这个函数是给外部(ui或序列化系统)使用，dsp只使用id索引系统
 			//ui拿到一个参数包，要通过这个函数得到描述
 		}
+		DirtynthParams GetModulatorAmountMultiplier(DirtynthParams param)
+		{
+			//根据当前的参数生成调制倍率。包络出来的范围是0-1，amount的范围是-1到1，需要映射成参数具体单位。
+		}
 	};
 
 	/*TOOLS FUNCTION*/
