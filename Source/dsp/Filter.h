@@ -322,7 +322,7 @@ namespace MinusMKI
 		float gradient = 1.0 / 16.0;
 
 		float z1 = 0, z2 = 0;
-		inline float ProcessAPF(float &z, float x, float k)//k 0->1 : z^-1 -> 1
+		inline float ProcessAPF(float& z, float x, float k)//k 0->1 : z^-1 -> 1
 		{
 			x = x - k * z;
 			float y = k * x + z;
@@ -389,7 +389,7 @@ namespace MinusMKI
 			if (fb > 0.999)fb = 0.999;
 			this->morph = morph;
 
-			gainfix = (1.0 - sqrtf(fb)) * 0.707;
+			gainfix = sqrtf(1.0 - fb);
 		}
 	};
 
@@ -425,9 +425,7 @@ namespace MinusMKI
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
 			reso = sqrtf(sqrtf(reso));
-			float morphGain = 1.0f + 3.0f * cheapSinPi(morph);
-			//gainFix = morphGain / (reso * reso);
-			gainFix = 1.0;
+			gainFix = 1.0 / 8.0;
 			morph = morph * morph + 1.0;
 			cf1.SetFilterParams(cutoff * (morph *= morph), reso, 0);
 			cf2.SetFilterParams(cutoff * (morph *= morph), reso, 0);
@@ -439,15 +437,17 @@ namespace MinusMKI
 	class RigidStringModal :public Filter
 	{
 	private:
-		constexpr static int MaxBufferSize = 2048;//minfreq = 48000/2048
+		constexpr static int MaxBufferSize = 4096;//minfreq = 48000/4096
 		float sampleRate = 48000;
 		float buf[MaxBufferSize] = { 0 };
 		int pos = 0;
-		float realDelayTime = 1.0;
 		float delayTime = 1.0;
 		float fb = 0.0;
 		float gainfix = 1.0;
 		float morph = 0;
+
+		float interval = 0.0;
+		float gradient = 1.0 / 16.0;
 
 		float z1 = 0, z2 = 0;
 		inline float ProcessAPF(float& z, float x, float k)//k 0->1 : z^-1 -> 1
@@ -457,6 +457,16 @@ namespace MinusMKI
 			z = x;
 			return y;
 		}
+
+		constexpr static int NumDispApf = 4;
+		float dispz[NumDispApf] = { 0 };
+		template<int i>
+		inline float ProcessDisperser(float x, float k)
+		{
+			if constexpr (i < 0) return x;
+			else return ProcessDisperser<i - 1>(ProcessAPF(dispz[i], x, k), k);
+		}
+
 		float ddcz = 0;
 		inline float ProcessDeDC(float x)
 		{
@@ -464,40 +474,56 @@ namespace MinusMKI
 			return x - ddcz;
 		}
 	public:
+		float lastDelayTime = 10.0, nextDelayTime = 10.0;
 		inline float ProcessSample(float x) override final
 		{
 			x *= gainfix;
-			realDelayTime += 0.01 * (delayTime - realDelayTime);
-			int idt = realDelayTime;
-			float kfrac = realDelayTime - idt;
+			interval += gradient;
+			if (interval >= 1.0)
+			{
+				interval -= 1.0;
+				lastDelayTime = nextDelayTime;
+				nextDelayTime = delayTime;
+			}
+			int idt1 = lastDelayTime;
+			int idt2 = nextDelayTime;
+			float kfrac1 = lastDelayTime - idt1;
+			float kfrac2 = nextDelayTime - idt2;
 			int writePos = pos % MaxBufferSize;
-			int readPos = (pos + MaxBufferSize - idt) % MaxBufferSize;
+			int readPos1 = (pos + MaxBufferSize - idt1) % MaxBufferSize;
+			int readPos2 = (pos + MaxBufferSize - idt2) % MaxBufferSize;
 			pos++;
-			float xWithFB = x + buf[readPos] * fb;
-			float out = xWithFB + buf[readPos];
-			buf[writePos] = ProcessAPF(z2, ProcessAPF(z1, ProcessDeDC(xWithFB), (1.0 - kfrac) / (1.0 + kfrac)), morph);
+
+			float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) / (1.0 + kfrac1));
+			float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) / (1.0 + kfrac2));
+			float bufout = bufout1 + (bufout2 - bufout1) * interval;
+
+			float xWithFB = x + bufout * fb;
+			float out = xWithFB + bufout;
+
+			buf[writePos] = ProcessDisperser<NumDispApf - 1>(ProcessDeDC(xWithFB), morph);
 			return out;
 		}
 		void Reset() override
 		{
 			for (auto& v : buf)v = 0;
 			z1 = z2 = 0;
+			for (auto& v : dispz)v = 0;
 			ddcz = 0.0f;
-			realDelayTime = delayTime;
 		}
 		void SetSampleRate(float sr) override { sampleRate = sr; }
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
 			if (cutoff < 10.0)cutoff = 10.0;
-			delayTime = sampleRate / cutoff - 1;
+			delayTime = sampleRate / cutoff - 1 - NumDispApf;
 			if (delayTime < 1)delayTime = 1;
 			if (delayTime > MaxBufferSize - 1)delayTime = MaxBufferSize - 1;
 			fb = 1.0 - 1.0 / reso;
 			if (fb < 0)fb = 0;
 			if (fb > 0.999)fb = 0.999;
-			this->morph = morph * 2.0 - 1.0;
+			this->morph = -morph;
 
-			gainfix = (1.0 - sqrtf(fb)) * 0.707;
+			gainfix = sqrtf(1.0 - fb);
 		}
 	};
 
@@ -556,7 +582,7 @@ namespace MinusMKI
 			if (k > 0.99)k = 0.99;
 			if (k < -0.99)k = -0.99;
 			fb = 1.0 - 1.0 / reso;
-			gainfix = sqrtf(fabs(fb - 1.0));
+			gainfix = sqrtf(1.0 - fb);
 		}
 	};
 }
