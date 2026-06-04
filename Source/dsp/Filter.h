@@ -93,6 +93,7 @@ namespace MinusMKI
 		}
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
+			if (cutoff < 10.0)cutoff = 10.0;
 			DesignBasicFilter(cutoff, reso, morph);
 		}
 		void SetSampleRate(float sr) override
@@ -171,6 +172,7 @@ namespace MinusMKI
 		}
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
+			if (cutoff < 10.0)cutoff = 10.0;
 			DesignBasicFilter(cutoff, reso, morph);
 		}
 		void SetSampleRate(float sr) override
@@ -267,6 +269,7 @@ namespace MinusMKI
 	public:
 		void SetFilterParams(float cutoff, float reso, float morph)override
 		{
+			if (cutoff < 10.0)cutoff = 10.0;
 			bw12.SetFilterParams(cutoff, reso, morph);
 
 			if (cutoff > sampleRate / 2 - 3000.0)cutoff = sampleRate / 2 - 3000.0;
@@ -306,18 +309,20 @@ namespace MinusMKI
 	class CombFilter :public Filter
 	{
 	private:
-		constexpr static int MaxBufferSize = 2048;//minfreq = 48000/2048
+		constexpr static int MaxBufferSize = 4096;//minfreq = 48000/4096
 		float sampleRate = 48000;
 		float buf[MaxBufferSize] = { 0 };
 		int pos = 0;
-		float realDelayTime = 1.0;
 		float delayTime = 1.0;
 		float fb = 0.0;
 		float gainfix = 1.0;
 		float morph = 0;
 
-		float z = 0;
-		inline float ProcessAPF(float x, float k)//k 0->1 : z^-1 -> 1
+		float interval = 0.0;
+		float gradient = 1.0 / 16.0;
+
+		float z1 = 0, z2 = 0;
+		inline float ProcessAPF(float &z, float x, float k)//k 0->1 : z^-1 -> 1
 		{
 			x = x - k * z;
 			float y = k * x + z;
@@ -331,37 +336,51 @@ namespace MinusMKI
 			return x - ddcz;
 		}
 	public:
+		float lastDelayTime = 10.0, nextDelayTime = 10.0;
 		inline float ProcessSample(float x) override final
 		{
 			x *= gainfix;
-			realDelayTime += 0.01 * (delayTime - realDelayTime);
-			int idt = realDelayTime;
-			float kfrac = realDelayTime - idt;
+			interval += gradient;
+			if (interval >= 1.0)
+			{
+				interval -= 1.0;
+				lastDelayTime = nextDelayTime;
+				nextDelayTime = delayTime;
+			}
+			int idt1 = lastDelayTime;
+			int idt2 = nextDelayTime;
+			float kfrac1 = lastDelayTime - idt1;
+			float kfrac2 = nextDelayTime - idt2;
 			int writePos = pos % MaxBufferSize;
-			int readPos = (pos + MaxBufferSize - idt) % MaxBufferSize;
+			int readPos1 = (pos + MaxBufferSize - idt1) % MaxBufferSize;
+			int readPos2 = (pos + MaxBufferSize - idt2) % MaxBufferSize;
 			pos++;
 
-			float xWithFB_Add = x + buf[readPos] * fb;
-			float xWithFB_Sub = x - buf[readPos] * fb;
-			float out_Add = xWithFB_Add + buf[readPos];
-			float out_Sub = xWithFB_Sub - buf[readPos];
+			float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) / (1.0 + kfrac1));
+			float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) / (1.0 + kfrac2));
+			float bufout = bufout1 + (bufout2 - bufout1) * interval;
+
+			float xWithFB_Add = x + bufout * fb;
+			float xWithFB_Sub = x - bufout * fb;
+			float out_Add = xWithFB_Add + bufout;
+			float out_Sub = xWithFB_Sub - bufout;
 
 			float xWithFB = morph < 0.5 ? xWithFB_Add : xWithFB_Sub;
 			float out = out_Add + (out_Sub - out_Add) * morph;
 
-			buf[writePos] = ProcessAPF(ProcessDeDC(xWithFB), (1.0 - kfrac) / (1.0 + kfrac));
+			buf[writePos] = ProcessDeDC(xWithFB);
 			return out;
 		}
 		void Reset() override
 		{
 			for (auto& v : buf)v = 0;
-			z = 0;
+			z1 = z2 = 0;
 			ddcz = 0.0f;
-			realDelayTime = delayTime;
 		}
 		void SetSampleRate(float sr) override { sampleRate = sr; }
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
+			if (cutoff < 10.0)cutoff = 10.0;
 			delayTime = sampleRate / cutoff - 1;
 			if (delayTime < 1)delayTime = 1;
 			if (delayTime > MaxBufferSize - 1)delayTime = MaxBufferSize - 1;
@@ -416,6 +435,72 @@ namespace MinusMKI
 			cf4.SetFilterParams(cutoff * (morph *= morph), reso, 0);
 		}
 	};
+
+	class RigidStringModal :public Filter
+	{
+	private:
+		constexpr static int MaxBufferSize = 2048;//minfreq = 48000/2048
+		float sampleRate = 48000;
+		float buf[MaxBufferSize] = { 0 };
+		int pos = 0;
+		float realDelayTime = 1.0;
+		float delayTime = 1.0;
+		float fb = 0.0;
+		float gainfix = 1.0;
+		float morph = 0;
+
+		float z1 = 0, z2 = 0;
+		inline float ProcessAPF(float& z, float x, float k)//k 0->1 : z^-1 -> 1
+		{
+			x = x - k * z;
+			float y = k * x + z;
+			z = x;
+			return y;
+		}
+		float ddcz = 0;
+		inline float ProcessDeDC(float x)
+		{
+			ddcz += 0.01 * (x - ddcz);
+			return x - ddcz;
+		}
+	public:
+		inline float ProcessSample(float x) override final
+		{
+			x *= gainfix;
+			realDelayTime += 0.01 * (delayTime - realDelayTime);
+			int idt = realDelayTime;
+			float kfrac = realDelayTime - idt;
+			int writePos = pos % MaxBufferSize;
+			int readPos = (pos + MaxBufferSize - idt) % MaxBufferSize;
+			pos++;
+			float xWithFB = x + buf[readPos] * fb;
+			float out = xWithFB + buf[readPos];
+			buf[writePos] = ProcessAPF(z2, ProcessAPF(z1, ProcessDeDC(xWithFB), (1.0 - kfrac) / (1.0 + kfrac)), morph);
+			return out;
+		}
+		void Reset() override
+		{
+			for (auto& v : buf)v = 0;
+			z1 = z2 = 0;
+			ddcz = 0.0f;
+			realDelayTime = delayTime;
+		}
+		void SetSampleRate(float sr) override { sampleRate = sr; }
+		void SetFilterParams(float cutoff, float reso, float morph) override
+		{
+			if (cutoff < 10.0)cutoff = 10.0;
+			delayTime = sampleRate / cutoff - 1;
+			if (delayTime < 1)delayTime = 1;
+			if (delayTime > MaxBufferSize - 1)delayTime = MaxBufferSize - 1;
+			fb = 1.0 - 1.0 / reso;
+			if (fb < 0)fb = 0;
+			if (fb > 0.999)fb = 0.999;
+			this->morph = morph * 2.0 - 1.0;
+
+			gainfix = (1.0 - sqrtf(fb)) * 0.707;
+		}
+	};
+
 	class PhaserFilter :public Filter
 	{
 	private:
@@ -461,6 +546,7 @@ namespace MinusMKI
 		}
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
+			if (cutoff < 10.0)cutoff = 10.0;
 			numStages = morph * (MaxStages - 2) + 2.0;
 			if (cutoff < 20.0)reso = 0.707;
 			if (cutoff > sampleRate / 2 - 3000.0)cutoff = sampleRate / 2 - 3000.0;

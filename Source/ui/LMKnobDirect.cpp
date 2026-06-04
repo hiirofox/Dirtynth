@@ -24,7 +24,7 @@ LMKnobDirect::LMKnobDirect() :slider(), label()
 		{
 			if (onValueChangeCallback)
 			{
-				onValueChangeCallback(slider.getValue());
+				onValueChangeCallback(SliderToParam(static_cast<float>(slider.getValue())));
 			}
 		};
 
@@ -49,8 +49,16 @@ void LMKnobDirect::paint(juce::Graphics& g)
 }
 void LMKnobDirect::ParamLink(float minv, float maxv, float defaultValue, float& currentValue, std::function<void(float)> onValueChange)
 {
-	slider.setRange(minv, maxv);
-	slider.setDoubleClickReturnValue(true, defaultValue);
+	if (hasKnobFeelRule)
+	{
+		slider.setRange(knobFeelRule.sliderMin, knobFeelRule.sliderMax, knobFeelRule.interval);
+		slider.setDoubleClickReturnValue(true, knobFeelRule.sliderDefault);
+	}
+	else
+	{
+		slider.setRange(minv, maxv);
+		slider.setDoubleClickReturnValue(true, defaultValue);
+	}
 
 	// 存储回调函数
 	onValueChangeCallback = std::move(onValueChange);
@@ -60,7 +68,18 @@ void LMKnobDirect::ParamLink(float minv, float maxv, float defaultValue, float& 
 	this->currentValue = &currentValue;
 
 	// currentValue 仍然是一个引用，所以用 &currentValue 来获取它的地址
-	slider.setValue(currentValue, juce::dontSendNotification);
+	slider.setValue(ParamToSlider(currentValue), juce::dontSendNotification);
+}
+
+void LMKnobDirect::ClearKnobFeelRule()
+{
+	hasKnobFeelRule = false;
+}
+
+void LMKnobDirect::SetKnobFeelRule(const KnobFeelRule& rule)
+{
+	knobFeelRule = rule;
+	hasKnobFeelRule = true;
 }
 
 void LMKnobDirect::timerCallback()
@@ -73,7 +92,7 @@ void LMKnobDirect::timerCallback()
 	if (currentValue != nullptr)
 	{
 		// 使用 *currentValue 来解引用指针，获取它所指向的外部变量的 *值*
-		slider.setValue(*currentValue, juce::dontSendNotification);
+		slider.setValue(ParamToSlider(*currentValue), juce::dontSendNotification);
 	}
 }
 
@@ -81,7 +100,7 @@ void LMKnobDirect::setValue(float newValue)
 {
 	// 外部调用此函数来更新UI，例如加载预设时
 	// 我们不希望这个设置触发 onValueChange 回调（避免循环调用）
-	slider.setValue(newValue, juce::dontSendNotification);
+	slider.setValue(ParamToSlider(newValue), juce::dontSendNotification);
 }
 
 void LMKnobDirect::setText(const juce::String& KnobText)
@@ -99,4 +118,18 @@ void LMKnobDirect::resized()
 void LMKnobDirect::setPos(int x, int y)
 {
 	setBounds(x - 32, y - 32, 64, 64);
+}
+
+float LMKnobDirect::SliderToParam(float sliderValue) const
+{
+	if (hasKnobFeelRule && knobFeelRule.SliderToValue)
+		return knobFeelRule.SliderToValue(sliderValue);
+	return sliderValue;
+}
+
+float LMKnobDirect::ParamToSlider(float paramValue) const
+{
+	if (hasKnobFeelRule && knobFeelRule.ValueToSlider)
+		return knobFeelRule.ValueToSlider(paramValue);
+	return paramValue;
 }

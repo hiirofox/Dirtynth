@@ -64,6 +64,64 @@ namespace DirtynthUIHelpers
 		return FindDescByID(descs, paramTools.SearchID(indexName));
 	}
 
+	inline void ApplyKnobFeelRule(LMKnobDirect& knob, const ParamDesc& desc)
+	{
+		LMKnobDirect::KnobFeelRule rule;
+
+		switch (desc.paramType)
+		{
+		case DirtynthParamSystem::Integer:
+			rule.sliderMin = desc.minValue;
+			rule.sliderMax = desc.maxValue;
+			rule.sliderDefault = desc.defValue;
+			rule.interval = 1.0;
+			rule.SliderToValue = [](float x) { return x; };
+			rule.ValueToSlider = [](float x) { return x; };
+			knob.SetKnobFeelRule(rule);
+			break;
+		case DirtynthParamSystem::NyquistFreqExp:
+			rule.sliderDefault = Dirtynth::CutoffToParam(desc.defValue, desc.minValue, desc.maxValue);
+			rule.SliderToValue = [minValue = desc.minValue, maxValue = desc.maxValue](float x)
+				{
+					return Dirtynth::ParamToCutoff(x, minValue, maxValue);
+				};
+			rule.ValueToSlider = [minValue = desc.minValue, maxValue = desc.maxValue](float x)
+				{
+					return Dirtynth::CutoffToParam(x, minValue, maxValue);
+				};
+			knob.SetKnobFeelRule(rule);
+			break;
+		case DirtynthParamSystem::FilterQ:
+			rule.sliderDefault = Dirtynth::ResoToParam(desc.defValue, desc.minValue, desc.maxValue);
+			rule.SliderToValue = [minValue = desc.minValue, maxValue = desc.maxValue](float x)
+				{
+					return Dirtynth::ParamToReso(x, minValue, maxValue);
+				};
+			rule.ValueToSlider = [minValue = desc.minValue, maxValue = desc.maxValue](float x)
+				{
+					return Dirtynth::ResoToParam(x, minValue, maxValue);
+				};
+			knob.SetKnobFeelRule(rule);
+			break;
+		case DirtynthParamSystem::TimeMsExp:
+			rule.sliderDefault = Dirtynth::EnveTimeToParam(desc.defValue, 9.0f, desc.maxValue);
+			rule.SliderToValue = [maxValue = desc.maxValue](float x)
+				{
+					return Dirtynth::ParamToEnveTime(x, 9.0f, maxValue);
+				};
+			rule.ValueToSlider = [maxValue = desc.maxValue](float x)
+				{
+					return Dirtynth::EnveTimeToParam(x, 9.0f, maxValue);
+				};
+			knob.SetKnobFeelRule(rule);
+			break;
+		case DirtynthParamSystem::Linear:
+		default:
+			knob.ClearKnobFeelRule();
+			break;
+		}
+	}
+
 	inline void BindKnob(LMKnobDirect& knob,
 		DirtynthParamSystem& paramTools,
 		DirtynthParams& params,
@@ -78,6 +136,7 @@ namespace DirtynthUIHelpers
 
 		float& value = paramTools.GetParamRefByID(params, id);
 		knob.setText(desc->name);
+		ApplyKnobFeelRule(knob, *desc);
 		knob.ParamLink(desc->minValue, desc->maxValue, desc->defValue, value,
 			[&paramTools, &params, id, onParamChanged](float x)
 			{

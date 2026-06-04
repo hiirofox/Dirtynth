@@ -12,11 +12,59 @@ namespace Dirtynth
 
 	constexpr static int NumWavetablePresets = 1;
 	constexpr static int NumMutantTypes = 4;
-	constexpr static int NumFilterTypes = 6;
+	constexpr static int NumFilterTypes = 7;
 	constexpr static int NumEnvelopeTypes = 1;
 	constexpr static int NumEnvelopeModes = 5;
 	constexpr static int NumEffectTypes = 4;
 
+
+	/*KnobFeel helper function*/
+	//这些param应该都是0到1归一化的
+	inline float Clamp01(float x)
+	{
+		if (x < 0.0f) return 0.0f;
+		if (x > 1.0f) return 1.0f;
+		return x;
+	}
+	inline float ParamToCutoff(float param, float cutoffMin = 20.0, float cutoffMax = 22000.0)
+	{
+		param = Clamp01(param);
+		return cutoffMin * powf(cutoffMax / cutoffMin, param);
+	}
+	inline float ParamToReso(float param, float resoMin = 0.707, float resoMax = 40.0)
+	{
+		param = Clamp01(param);
+		return resoMin * powf(resoMax / resoMin, param);
+	}
+	inline float CutoffToParam(float cutoff, float cutoffMin = 20.0, float cutoffMax = 22000.0)
+	{
+		if (cutoff < cutoffMin) cutoff = cutoffMin;
+		if (cutoff > cutoffMax) cutoff = cutoffMax;
+		return logf(cutoff / cutoffMin) / logf(cutoffMax / cutoffMin);
+	}
+	inline float ResoToParam(float reso, float resoMin = 0.707, float resoMax = 40.0)
+	{
+		if (reso < resoMin) reso = resoMin;
+		if (reso > resoMax) reso = resoMax;
+		return logf(reso / resoMin) / logf(resoMax / resoMin);
+	}
+
+	inline float ParamToEnveTime(float param, float enveExpShape = 4.0, float enveTimeMaxMs = 60000)
+	{
+		float x = expf((Clamp01(param) - 1.0) * enveExpShape);
+		const static float expShape = expf(-enveExpShape);
+		float y = (x - expShape) / (1.0f - expShape);
+		return y * enveTimeMaxMs;
+	}
+	inline float EnveTimeToParam(float time, float enveExpShape = 4.0, float enveTimeMaxMs = 60000)
+	{
+		float y = Clamp01(time / enveTimeMaxMs);
+		const static float expShape = expf(-enveExpShape);
+		float x = y * (1.0f - expShape) + expShape;
+		float param = 1.0f + logf(x) / enveExpShape;
+		return Clamp01(param);
+	}
+	/*--------------*/
 
 	struct DirtynthParams
 	{
@@ -352,6 +400,8 @@ namespace Dirtynth
 			case 4:
 				return "Spread";
 			case 5:
+				return "Disperse";
+			case 6:
 				return "Stages";
 			default:
 				return "Morph";
@@ -377,9 +427,9 @@ namespace Dirtynth
 			if (envelopeType == 0)
 			{
 				PatchDesc(descs, prefix + "P1", "Attack", false, TimeMsExp, 0.0f, 60000.0f, 0.0f);
-				PatchDesc(descs, prefix + "P2", "AttShape", false, Linear, -10.0f, 10.0f, 0.0f);
+				PatchDesc(descs, prefix + "P2", "AttShape", false, Linear, -16.0f, 16.0f, 0.0f);
 				PatchDesc(descs, prefix + "P3", "Decay", false, TimeMsExp, 0.0f, 60000.0f, 0.0f);
-				PatchDesc(descs, prefix + "P4", "DecShape", false, Linear, -10.0f, 10.0f, 0.0f);
+				PatchDesc(descs, prefix + "P4", "DecShape", false, Linear, -16.0f, 16.0f, 0.0f);
 				PatchDesc(descs, prefix + "P5", "Sustain", false, Linear, 0.0f, 1.0f, 1.0f);
 				PatchDesc(descs, prefix + "P6", "Release", false, TimeMsExp, 0.0f, 60000.0f, 0.0f);
 			}

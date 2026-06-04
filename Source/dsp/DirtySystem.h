@@ -35,14 +35,15 @@ namespace Dirtynth
 	};
 	struct RegFilter
 	{
-		constexpr static int NumRegFilter = 6;
-		constexpr static const char* FilterNames[RegFilter::NumRegFilter] = { "SVF12dB","SVF24dB","Ellip6order","Comb","Comb4Stage","Phaser" };
+		constexpr static int NumRegFilter = 7;
+		constexpr static const char* FilterNames[RegFilter::NumRegFilter] = { "SVF12dB","SVF24dB","Ellip6order","Comb","Comb4Stage","RSModal","Phaser" };
 		std::vector<std::shared_ptr<Filter>> regFilter{
 			std::make_shared<SVFilter12dB>(),
 			std::make_shared<SVFilter24dB>(),
 			std::make_shared<Elliptic6order>(),
 			std::make_shared<CombFilter>(),
 			std::make_shared<CombFilter4Stage>(),
+			std::make_shared<RigidStringModal>(),
 			std::make_shared<PhaserFilter>() };
 		std::shared_ptr<Filter> operator[](std::size_t index)
 		{
@@ -70,67 +71,6 @@ namespace Dirtynth
 	};
 
 
-	/*TOOLS FUNCTION*/
-	//应该用不到这些了
-	constexpr static float CutoffMin = 20.0;
-	constexpr static float CutoffMax = 22000.0;
-	constexpr static float ResoMin = 0.707;
-	constexpr static float ResoMax = 40.0;
-	constexpr static float EnveTimeMaxMs = 60000;
-	constexpr static float EnveExpShape = 4.0;
-	inline float Clamp01(float x)
-	{
-		if (x < 0.0f) return 0.0f;
-		if (x > 1.0f) return 1.0f;
-		return x;
-	}
-	inline float ParamToCutoff(float param)
-	{
-		param = Clamp01(param);
-		return CutoffMin * powf(CutoffMax / CutoffMin, param);
-	}
-	inline float ParamToReso(float param)
-	{
-		param = Clamp01(param);
-		return ResoMin * powf(ResoMax / ResoMin, param);
-	}
-	inline float CutoffToParam(float cutoff)
-	{
-		if (cutoff < CutoffMin) cutoff = CutoffMin;
-		if (cutoff > CutoffMax) cutoff = CutoffMax;
-		return logf(cutoff / CutoffMin) / logf(CutoffMax / CutoffMin);
-	}
-	inline float ResoToParam(float reso)
-	{
-		if (reso < ResoMin) reso = ResoMin;
-		if (reso > ResoMax) reso = ResoMax;
-		return logf(reso / ResoMin) / logf(ResoMax / ResoMin);
-	}
-
-	inline float ParamToEnveTime(float param)
-	{
-		float x = expf((Clamp01(param) - 1.0) * EnveExpShape);
-		const static float expShape = expf(-EnveExpShape);
-		float y = (x - expShape) / (1.0f - expShape);
-		return y * EnveTimeMaxMs;
-	}
-	inline float EnveTimeToParam(float time)
-	{
-		float y = Clamp01(time / EnveTimeMaxMs);
-		const static float expShape = expf(-EnveExpShape);
-		float x = y * (1.0f - expShape) + expShape;
-		float param = 1.0f + logf(x) / EnveExpShape;
-		return Clamp01(param);
-	}
-	inline float ParamToEnveShape(float param)
-	{
-		return (param - 0.5) * 2.0 * 10.0;
-	}
-	inline float EnveShapeToParam(float shape)
-	{
-		return Clamp01(shape / 20.0 + 0.5);
-	}
-	/*--------------*/
 
 	class MutantThreadPool//异步计算mutant线程池
 	{
