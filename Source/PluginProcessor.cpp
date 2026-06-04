@@ -17,8 +17,6 @@ namespace
 	Dirtynth::DirtynthParams makeDefaultProcessorParams()
 	{
 		Dirtynth::DirtynthParams params;
-		for (int i = 0; i < Dirtynth::NumEnvelopes; ++i)
-			params.enveParams[i].enveTarget = -1.0f;
 		return params;
 	}
 }

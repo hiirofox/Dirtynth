@@ -6,12 +6,14 @@
 #include "LM_slider.h"
 #include "LMKnobDirect.h"
 #include "../dsp/DirtySystem.h"
-#include "../dsp/presets/presets.h"
+#include "../dsp/DirtyParams.h"
 
 using namespace Dirtynth;
 
 namespace DirtynthUIHelpers
 {
+	using ParamDesc = DirtynthParamSystem::ParamDesc;
+
 	static constexpr const char* EnvelopeModeNames[] = {
 		"PolyReset",
 		"PolyNoReset",
@@ -25,11 +27,6 @@ namespace DirtynthUIHelpers
 		if (value < minValue) return minValue;
 		if (value > maxValue) return maxValue;
 		return value;
-	}
-
-	inline int ParamsNameCount()
-	{
-		return static_cast<int>(sizeof(ParamsNamePack::paramsName) / sizeof(ParamsNamePack::paramsName[0]));
 	}
 
 	template <int NumNames>
@@ -54,12 +51,62 @@ namespace DirtynthUIHelpers
 			});
 	}
 
-	inline DirtynthParams MakeDefaultUIParams()
+	inline ParamDesc* FindDescByID(std::vector<ParamDesc>& descs, int id)
 	{
-		DirtynthParams params;
-		for (int i = 0; i < NumEnvelopes; ++i)
-			params.enveParams[i].enveTarget = -1.0f;
-		return params;
+		if (id <= 0 || id > static_cast<int>(descs.size()))
+			return nullptr;
+		return &descs[id - 1];
+	}
+
+	inline ParamDesc* FindDescByName(DirtynthParamSystem& paramTools,
+		std::vector<ParamDesc>& descs, const std::string& indexName)
+	{
+		return FindDescByID(descs, paramTools.SearchID(indexName));
+	}
+
+	inline void BindKnob(LMKnobDirect& knob,
+		DirtynthParamSystem& paramTools,
+		DirtynthParams& params,
+		std::vector<ParamDesc>& descs,
+		const std::string& indexName,
+		std::function<void()> onParamChanged = {})
+	{
+		const int id = paramTools.SearchID(indexName);
+		ParamDesc* desc = FindDescByID(descs, id);
+		if (desc == nullptr)
+			return;
+
+		float& value = paramTools.GetParamRefByID(params, id);
+		knob.setText(desc->name);
+		knob.ParamLink(desc->minValue, desc->maxValue, desc->defValue, value,
+			[&paramTools, &params, id, onParamChanged](float x)
+			{
+				paramTools.GetParamRefByID(params, id) = x;
+				if (onParamChanged)
+					onParamChanged();
+			});
+	}
+
+	inline void SetKnobValue(LMKnobDirect& knob,
+		DirtynthParamSystem& paramTools,
+		DirtynthParams& params,
+		const std::string& indexName)
+	{
+		const int id = paramTools.SearchID(indexName);
+		if (id <= 0)
+			return;
+		knob.setValue(paramTools.GetParamRefByID(params, id));
+	}
+
+	inline void AddModTargetItems(LMCombox& combo, const std::vector<ParamDesc>& descs)
+	{
+		combo.addItem("--none--", 1);
+		for (int i = 0; i < static_cast<int>(descs.size()); ++i)
+		{
+			const ParamDesc& desc = descs[i];
+			if (desc.isModulated)
+				combo.addItem(juce::String(desc.indexName), i + 2);
+		}
 	}
 }
 
@@ -68,6 +115,8 @@ class GlobalSetting : public juce::Component
 private:
 	DirtynthParams& params;
 	DirtynthSystem& instance;
+	DirtynthParamSystem& paramTools;
+	std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs;
 	LMKnobDirect masterVol;
 	LMKnobDirect octave;
 	LMCombox preset;
@@ -78,31 +127,21 @@ private:
 		instance.SetParams(params);
 	}
 public:
-	GlobalSetting(DirtynthParams& params, DirtynthSystem& instance, std::function<void()> onPresetLoaded = {})
-		: params(params), instance(instance), onPresetLoaded(std::move(onPresetLoaded))
+	GlobalSetting(DirtynthParams& params, DirtynthSystem& instance,
+		DirtynthParamSystem& paramTools,
+		std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs,
+		std::function<void()> onPresetLoaded = {})
+		: params(params), instance(instance),
+		paramTools(paramTools), paramDescs(paramDescs),
+		onPresetLoaded(std::move(onPresetLoaded))
 	{
-		masterVol.setText("Master");
-		masterVol.ParamLink(0.0f, 1.0f, 0.5f, params.masterVol, [this](float x) { this->params.masterVol = x; SendParams(); });
-		octave.setText("Octave");
-		octave.ParamLink(0.0f, 1.0f, 0.5f, params.octave, [this](float x) { this->params.octave = x; SendParams(); });
+		DirtynthUIHelpers::BindKnob(masterVol, paramTools, params, paramDescs, "masterVol", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(octave, paramTools, params, paramDescs, "octave", [this]() { SendParams(); });
 		preset.addItem("--Preset--", 1);
-		for (int i = 0; i < DirtynthPresets::GetNumPresets(); ++i)
-		{
-			auto presetPack = DirtynthPresets::GetLocalPresets(i);
-			preset.addItem(juce::String(std::get<0>(presetPack)), i + 2);
-		}
 		preset.setSelectedID(1);
 		preset.setChangedCallback([this](int selectedID)
 			{
-				const int presetIndex = selectedID - 2;
-				if (presetIndex < 0 || presetIndex >= DirtynthPresets::GetNumPresets())
-					return;
-
-				auto presetPack = DirtynthPresets::GetLocalPresets(presetIndex);
-				this->params = std::get<1>(presetPack);
-				SendParams();
-				if (this->onPresetLoaded)
-					this->onPresetLoaded();
+				juce::ignoreUnused(selectedID);
 			});
 		addAndMakeVisible(masterVol);
 		addAndMakeVisible(octave);
@@ -111,8 +150,8 @@ public:
 
 	void Refresh()
 	{
-		masterVol.setValue(params.masterVol);
-		octave.setValue(params.octave);
+		DirtynthUIHelpers::BindKnob(masterVol, paramTools, params, paramDescs, "masterVol", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(octave, paramTools, params, paramDescs, "octave", [this]() { SendParams(); });
 	}
 
 	void resized() override
@@ -130,6 +169,9 @@ class OscSetting : public juce::Component
 private:
 	DirtynthParams& params;
 	DirtynthSystem& instance;
+	DirtynthParamSystem& paramTools;
+	std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs;
+	std::function<void()> onSemanticChanged;
 	const int oscIndex;
 	LMCombox wtpreset;
 	LMKnobDirect wtpos;
@@ -155,7 +197,15 @@ private:
 	}
 
 public:
-	OscSetting(DirtynthParams& params, DirtynthSystem& instance, int osc) : params(params), instance(instance), oscIndex(osc)
+	OscSetting(DirtynthParams& params, DirtynthSystem& instance,
+		DirtynthParamSystem& paramTools,
+		std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs,
+		int osc,
+		std::function<void()> onSemanticChanged = {})
+		: params(params), instance(instance),
+		paramTools(paramTools), paramDescs(paramDescs),
+		onSemanticChanged(std::move(onSemanticChanged)),
+		oscIndex(osc)
 	{
 		using namespace DirtynthUIHelpers;
 
@@ -163,30 +213,10 @@ public:
 		AddNameItems(mutantAtype, RegMutant::MutantNames);
 		AddNameItems(mutantBtype, RegMutant::MutantNames);
 
-		wtpos.setText("TablePos");
-		pitch.setText("Pitch");
-		detune.setText("Detune");
-		pA1.setText("PA1");
-		pA2.setText("PA2");
-		pA3.setText("PA3");
-		pB1.setText("PB1");
-		pB2.setText("PB2");
-		pB3.setText("PB3");
-
 		auto& oscParams = GetOscParams();
 		LinkIndexedCombo(wtpreset, oscParams.oscWtPreset, 1, [this]() { SendParams(); });
-		LinkIndexedCombo(mutantAtype, oscParams.mutantA.mutantType, RegMutant::NumRegMutant, [this]() { SendParams(); });
-		LinkIndexedCombo(mutantBtype, oscParams.mutantB.mutantType, RegMutant::NumRegMutant, [this]() { SendParams(); });
-
-		wtpos.ParamLink(0.0f, 1.0f, 0.5f, oscParams.oscWtPos, [this](float x) { GetOscParams().oscWtPos = x; SendParams(); });
-		pitch.ParamLink(-48.0f, 48.0f, 0.0f, oscParams.oscPitch, [this](float x) { GetOscParams().oscPitch = x; SendParams(); });
-		detune.ParamLink(-1.0, 1.0f, 0.0f, oscParams.oscDetune, [this](float x) { GetOscParams().oscDetune = x; SendParams(); });
-		pA1.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p1, [this](float x) { GetOscParams().mutantA.p1 = x; SendParams(); });
-		pA2.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p2, [this](float x) { GetOscParams().mutantA.p2 = x; SendParams(); });
-		pA3.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantA.p3, [this](float x) { GetOscParams().mutantA.p3 = x; SendParams(); });
-		pB1.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantB.p1, [this](float x) { GetOscParams().mutantB.p1 = x; SendParams(); });
-		pB2.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantB.p2, [this](float x) { GetOscParams().mutantB.p2 = x; SendParams(); });
-		pB3.ParamLink(0.0f, 1.0f, 0.0f, oscParams.mutantB.p3, [this](float x) { GetOscParams().mutantB.p3 = x; SendParams(); });
+		LinkIndexedCombo(mutantAtype, oscParams.mutantA.mutantType, RegMutant::NumRegMutant, [this]() { SendParams(); if (this->onSemanticChanged) this->onSemanticChanged(); });
+		LinkIndexedCombo(mutantBtype, oscParams.mutantB.mutantType, RegMutant::NumRegMutant, [this]() { SendParams(); if (this->onSemanticChanged) this->onSemanticChanged(); });
 
 		addAndMakeVisible(wtpreset);
 		addAndMakeVisible(wtpos);
@@ -200,6 +230,8 @@ public:
 		addAndMakeVisible(pB1);
 		addAndMakeVisible(pB2);
 		addAndMakeVisible(pB3);
+
+		Refresh();
 	}
 
 	void Refresh()
@@ -208,15 +240,16 @@ public:
 		wtpreset.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(oscParams.oscWtPreset), 0, 0) + 1);
 		mutantAtype.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(oscParams.mutantA.mutantType), 0, RegMutant::NumRegMutant - 1) + 1);
 		mutantBtype.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(oscParams.mutantB.mutantType), 0, RegMutant::NumRegMutant - 1) + 1);
-		wtpos.setValue(oscParams.oscWtPos);
-		pitch.setValue(oscParams.oscPitch);
-		detune.setValue(oscParams.oscDetune);
-		pA1.setValue(oscParams.mutantA.p1);
-		pA2.setValue(oscParams.mutantA.p2);
-		pA3.setValue(oscParams.mutantA.p3);
-		pB1.setValue(oscParams.mutantB.p1);
-		pB2.setValue(oscParams.mutantB.p2);
-		pB3.setValue(oscParams.mutantB.p3);
+		const std::string prefix = "osc" + std::to_string(oscIndex);
+		DirtynthUIHelpers::BindKnob(wtpos, paramTools, params, paramDescs, prefix + "WtPos", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(pitch, paramTools, params, paramDescs, prefix + "Pitch", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(detune, paramTools, params, paramDescs, prefix + "Detune", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(pA1, paramTools, params, paramDescs, prefix + "MutAP1", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(pA2, paramTools, params, paramDescs, prefix + "MutAP2", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(pA3, paramTools, params, paramDescs, prefix + "MutAP3", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(pB1, paramTools, params, paramDescs, prefix + "MutBP1", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(pB2, paramTools, params, paramDescs, prefix + "MutBP2", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(pB3, paramTools, params, paramDescs, prefix + "MutBP3", [this]() { SendParams(); });
 	}
 
 	int totalWidth = 0;
@@ -246,6 +279,9 @@ class FilterSetting : public juce::Component
 private:
 	DirtynthParams& params;
 	DirtynthSystem& instance;
+	DirtynthParamSystem& paramTools;
+	std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs;
+	std::function<void()> onSemanticChanged;
 	const int filtIndex;
 	LMCombox filterType;
 	LMKnobDirect cutoff;
@@ -264,38 +300,41 @@ private:
 	}
 
 public:
-	FilterSetting(DirtynthParams& params, DirtynthSystem& instance, int filt) : params(params), instance(instance), filtIndex(filt)
+	FilterSetting(DirtynthParams& params, DirtynthSystem& instance,
+		DirtynthParamSystem& paramTools,
+		std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs,
+		int filt,
+		std::function<void()> onSemanticChanged = {})
+		: params(params), instance(instance),
+		paramTools(paramTools), paramDescs(paramDescs),
+		onSemanticChanged(std::move(onSemanticChanged)),
+		filtIndex(filt)
 	{
 		using namespace DirtynthUIHelpers;
 
 		AddNameItems(filterType, RegFilter::FilterNames);
-		cutoff.setText("Cutoff");
-		keyTrack.setText("KeyTrack");
-		reso.setText("Reso");
-		morph.setText("Morph");
 
 		auto& filtParams = GetFiltParams();
-		LinkIndexedCombo(filterType, filtParams.type, RegFilter::NumRegFilter, [this]() { SendParams(); });
-		cutoff.ParamLink(0.0f, 1.0f, 1.0f, filtParams.cutoff, [this](float x) { GetFiltParams().cutoff = x; SendParams(); });
-		keyTrack.ParamLink(0.0f, 1.0f, 0.0f, filtParams.keyTrack, [this](float x) { GetFiltParams().keyTrack = x; SendParams(); });
-		reso.ParamLink(0.0f, 1.0f, 0.0f, filtParams.reso, [this](float x) { GetFiltParams().reso = x; SendParams(); });
-		morph.ParamLink(0.0f, 1.0f, 0.0f, filtParams.morph, [this](float x) { GetFiltParams().morph = x; SendParams(); });
+		LinkIndexedCombo(filterType, filtParams.type, RegFilter::NumRegFilter, [this]() { SendParams(); if (this->onSemanticChanged) this->onSemanticChanged(); });
 
 		addAndMakeVisible(filterType);
 		addAndMakeVisible(cutoff);
 		addAndMakeVisible(keyTrack);
 		addAndMakeVisible(reso);
 		addAndMakeVisible(morph);
+
+		Refresh();
 	}
 
 	void Refresh()
 	{
 		auto& filtParams = GetFiltParams();
 		filterType.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(filtParams.type), 0, RegFilter::NumRegFilter - 1) + 1);
-		cutoff.setValue(filtParams.cutoff);
-		keyTrack.setValue(filtParams.keyTrack);
-		reso.setValue(filtParams.reso);
-		morph.setValue(filtParams.morph);
+		const std::string prefix = "filt" + std::to_string(filtIndex);
+		DirtynthUIHelpers::BindKnob(cutoff, paramTools, params, paramDescs, prefix + "Cutoff", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(keyTrack, paramTools, params, paramDescs, prefix + "KeyTrack", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(reso, paramTools, params, paramDescs, prefix + "Reso", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(morph, paramTools, params, paramDescs, prefix + "Morph", [this]() { SendParams(); });
 	}
 
 	void resized() override
@@ -316,40 +355,41 @@ class OscModulatorSetting : public juce::Component
 private:
 	DirtynthParams& params;
 	DirtynthSystem& instance;
+	DirtynthParamSystem& paramTools;
+	std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs;
 	LMKnobDirect pmDepth;
-	LMKnobDirect oscMix;
-	LMKnobDirect oscAmp;
+	LMKnobDirect osc1gain;
+	LMKnobDirect osc2gain;
 
 	void SendParams()
 	{
 		instance.SetParams(params);
 	}
 public:
-	OscModulatorSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
+	OscModulatorSetting(DirtynthParams& params, DirtynthSystem& instance,
+		DirtynthParamSystem& paramTools,
+		std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs)
+		: params(params), instance(instance),
+		paramTools(paramTools), paramDescs(paramDescs)
 	{
-		pmDepth.setText("1PM2");
-		oscMix.setText("OscMix");
-		oscAmp.setText("OscAmp");
-		pmDepth.ParamLink(0.0f, 1.0f, 0.0f, params.pmDepth, [this](float x) { this->params.pmDepth = x; SendParams(); });
-		oscMix.ParamLink(0.0f, 1.0f, 0.0f, params.oscMix, [this](float x) { this->params.oscMix = x; SendParams(); });
-		oscAmp.ParamLink(0.0f, 1.0f, 0.0f, params.oscAmp, [this](float x) { this->params.oscAmp = x; SendParams(); });
 		addAndMakeVisible(pmDepth);
-		addAndMakeVisible(oscMix);
-		addAndMakeVisible(oscAmp);
+		addAndMakeVisible(osc1gain);
+		addAndMakeVisible(osc2gain);
+		Refresh();
 	}
 
 	void Refresh()
 	{
-		pmDepth.setValue(params.pmDepth);
-		oscMix.setValue(params.oscMix);
-		oscAmp.setValue(params.oscAmp);
+		DirtynthUIHelpers::BindKnob(pmDepth, paramTools, params, paramDescs, "pmDepth", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(osc1gain, paramTools, params, paramDescs, "osc1gain", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(osc2gain, paramTools, params, paramDescs, "osc2gain", [this]() { SendParams(); });
 	}
 
 	void resized() override
 	{
 		pmDepth.setBounds(64 * 0, 0, 64, 64);
-		oscMix.setBounds(64 * 1, 0, 64, 64);
-		oscAmp.setBounds(64 * 2, 0, 64, 64);
+		osc1gain.setBounds(64 * 1, 0, 64, 64);
+		osc2gain.setBounds(64 * 2, 0, 64, 64);
 	}
 
 	int GetTotalWidth() { return 64 * 3; }
@@ -360,37 +400,53 @@ class FilterModulatorSetting : public juce::Component
 private:
 	DirtynthParams& params;
 	DirtynthSystem& instance;
-	LMKnobDirect filt2SwitchIn;
-	LMKnobDirect filtMix;
+	DirtynthParamSystem& paramTools;
+	std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs;
+	LMKnobDirect filt1gain;
+	LMKnobDirect filt2gain;
+	LMKnobDirect outputAmp;
+	LMCombox sysTopo;
 
 	void SendParams()
 	{
 		instance.SetParams(params);
 	}
 public:
-	FilterModulatorSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
+	FilterModulatorSetting(DirtynthParams& params, DirtynthSystem& instance,
+		DirtynthParamSystem& paramTools,
+		std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs)
+		: params(params), instance(instance),
+		paramTools(paramTools), paramDescs(paramDescs)
 	{
-		filt2SwitchIn.setText("F2Input");
-		filtMix.setText("FiltMix");
-		filt2SwitchIn.ParamLink(0.0f, 1.0f, 0.0f, params.filt2SwitchIn, [this](float x) { this->params.filt2SwitchIn = x; SendParams(); });
-		filtMix.ParamLink(0.0f, 1.0f, 0.0f, params.filtMix, [this](float x) { this->params.filtMix = x; SendParams(); });
-		addAndMakeVisible(filt2SwitchIn);
-		addAndMakeVisible(filtMix);
+		sysTopo.addItem("Parallel", 1);
+		sysTopo.addItem("F1->F2", 2);
+		sysTopo.addItem("Serial", 3);
+		sysTopo.addItem("Dual", 4);
+		DirtynthUIHelpers::LinkIndexedCombo(sysTopo, params.sysTopo, 4, [this]() { SendParams(); });
+		addAndMakeVisible(filt1gain);
+		addAndMakeVisible(filt2gain);
+		addAndMakeVisible(outputAmp);
+		addAndMakeVisible(sysTopo);
+		Refresh();
 	}
 
 	void Refresh()
 	{
-		filt2SwitchIn.setValue(params.filt2SwitchIn);
-		filtMix.setValue(params.filtMix);
+		DirtynthUIHelpers::BindKnob(filt1gain, paramTools, params, paramDescs, "filt1gain", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(filt2gain, paramTools, params, paramDescs, "filt2gain", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(outputAmp, paramTools, params, paramDescs, "outputAmp", [this]() { SendParams(); });
+		sysTopo.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(params.sysTopo), 0, 3) + 1);
 	}
 
 	void resized() override
 	{
-		filt2SwitchIn.setBounds(64 * 0, 0, 64, 64);
-		filtMix.setBounds(64 * 1, 0, 64, 64);
+		filt1gain.setBounds(64 * 0, 0, 64, 64);
+		filt2gain.setBounds(64 * 1, 0, 64, 64);
+		outputAmp.setBounds(64 * 2, 0, 64, 64);
+		sysTopo.setBounds(64 * 3 + 16, (64 - 32) / 2, 96, 24);
 	}
 
-	int GetTotalWidth() { return 64 * 2; }
+	int GetTotalWidth() { return 64 * 3 + 16 + 96; }
 };
 
 class EnvelopeSetting : public juce::Component
@@ -398,12 +454,17 @@ class EnvelopeSetting : public juce::Component
 private:
 	DirtynthParams& params;
 	DirtynthSystem& instance;
+	DirtynthParamSystem& paramTools;
+	std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs;
+	std::function<void()> onSemanticChanged;
 	int selectedEnvelope = 0;
 	LMCombox envView;
 	LMCombox envType;
 	LMCombox envMode;
-	LMCombox envTarget;
-	LMKnobDirect amount;
+	LMCombox envTarget1;
+	LMCombox envTarget2;
+	LMKnobDirect amount1;
+	LMKnobDirect amount2;
 	LMKnobDirect p1;
 	LMKnobDirect p2;
 	LMKnobDirect p3;
@@ -423,15 +484,20 @@ private:
 
 	void UpdateEnvelopeTargetSelection()
 	{
-		const int target = static_cast<int>(GetSelectedParams().enveTarget);
-		if (target < 0 || target >= DirtynthUIHelpers::ParamsNameCount())
-			envTarget.setSelectedID(1);
-		else
-			envTarget.setSelectedID(target + 2);
+		const int target1 = static_cast<int>(GetSelectedParams().targetID1);
+		const int target2 = static_cast<int>(GetSelectedParams().targetID2);
+		envTarget1.setSelectedID(target1 > 0 ? target1 + 1 : 1);
+		envTarget2.setSelectedID(target2 > 0 ? target2 + 1 : 1);
 	}
 
 public:
-	EnvelopeSetting(DirtynthParams& params, DirtynthSystem& instance) : params(params), instance(instance)
+	EnvelopeSetting(DirtynthParams& params, DirtynthSystem& instance,
+		DirtynthParamSystem& paramTools,
+		std::vector<DirtynthUIHelpers::ParamDesc>& paramDescs,
+		std::function<void()> onSemanticChanged = {})
+		: params(params), instance(instance),
+		paramTools(paramTools), paramDescs(paramDescs),
+		onSemanticChanged(std::move(onSemanticChanged))
 	{
 		using namespace DirtynthUIHelpers;
 
@@ -440,9 +506,8 @@ public:
 
 		AddNameItems(envType, RegEnvelope::EnvelopeNames);
 		AddNameItems(envMode, EnvelopeModeNames);
-		envTarget.addItem("--none--", 1);
-		for (int i = 0; i < ParamsNameCount(); ++i)
-			envTarget.addItem(ParamsNamePack::paramsName[i], i + 2);
+		AddModTargetItems(envTarget1, paramDescs);
+		AddModTargetItems(envTarget2, paramDescs);
 
 		envView.setChangedCallback([this](int selectedID)
 			{
@@ -450,30 +515,36 @@ public:
 			});
 		envType.setChangedCallback([this](int selectedID)
 			{
-				GetSelectedParams().enveType = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 1, 0, RegEnvelope::NumRegEnvelope - 1));
+				GetSelectedParams().type = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 1, 0, RegEnvelope::NumRegEnvelope - 1));
 				SendParams();
+				if (this->onSemanticChanged)
+					this->onSemanticChanged();
 				SelectEnve(selectedEnvelope);
 			});
 		envMode.setChangedCallback([this](int selectedID)
 			{
 				const int modeCount = static_cast<int>(sizeof(DirtynthUIHelpers::EnvelopeModeNames) / sizeof(DirtynthUIHelpers::EnvelopeModeNames[0]));
-				GetSelectedParams().enveMode = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 1, 0, modeCount - 1));
+				GetSelectedParams().mode = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 1, 0, modeCount - 1));
 				SendParams();
 			});
-		envTarget.setChangedCallback([this](int selectedID)
+		envTarget1.setChangedCallback([this](int selectedID)
 			{
-				if (selectedID <= 1)
-					GetSelectedParams().enveTarget = -1.0f;
-				else
-					GetSelectedParams().enveTarget = static_cast<float>(DirtynthUIHelpers::ClampInt(selectedID - 2, 0, DirtynthUIHelpers::ParamsNameCount() - 1));
+				GetSelectedParams().targetID1 = static_cast<float>(selectedID > 1 ? selectedID - 1 : 0);
+				SendParams();
+			});
+		envTarget2.setChangedCallback([this](int selectedID)
+			{
+				GetSelectedParams().targetID2 = static_cast<float>(selectedID > 1 ? selectedID - 1 : 0);
 				SendParams();
 			});
 
 		addAndMakeVisible(envView);
 		addAndMakeVisible(envType);
 		addAndMakeVisible(envMode);
-		addAndMakeVisible(envTarget);
-		addAndMakeVisible(amount);
+		addAndMakeVisible(envTarget1);
+		addAndMakeVisible(envTarget2);
+		addAndMakeVisible(amount1);
+		addAndMakeVisible(amount2);
 		addAndMakeVisible(p1);
 		addAndMakeVisible(p2);
 		addAndMakeVisible(p3);
@@ -490,38 +561,20 @@ public:
 		DirtynthParams::EnveParams& enveParams = GetSelectedParams();
 
 		envView.setSelectedID(selectedEnvelope + 1);
-		envType.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(enveParams.enveType), 0, RegEnvelope::NumRegEnvelope - 1) + 1);
+		envType.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(enveParams.type), 0, RegEnvelope::NumRegEnvelope - 1) + 1);
 		const int modeCount = static_cast<int>(sizeof(DirtynthUIHelpers::EnvelopeModeNames) / sizeof(DirtynthUIHelpers::EnvelopeModeNames[0]));
-		envMode.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(enveParams.enveMode), 0, modeCount - 1) + 1);
+		envMode.setSelectedID(DirtynthUIHelpers::ClampInt(static_cast<int>(enveParams.mode), 0, modeCount - 1) + 1);
 		UpdateEnvelopeTargetSelection();
 
-		amount.setText("Amount");
-		if (enveParams.enveType == 0)
-		{
-			p1.setText("Attack");
-			p2.setText("AttShape");
-			p3.setText("Decay");
-			p4.setText("DecShape");
-			p5.setText("Sustain");
-			p6.setText("Release");
-		}
-		else
-		{
-			p1.setText("P1");
-			p2.setText("P2");
-			p3.setText("P3");
-			p4.setText("P4");
-			p5.setText("P5");
-			p6.setText("P6");
-		}
-
-		amount.ParamLink(-1.0f, 1.0f, 0.0f, enveParams.enveAmount, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveAmount = x; SendParams(); });
-		p1.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP1, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP1 = x; SendParams(); });
-		p2.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP2, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP2 = x; SendParams(); });
-		p3.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP3, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP3 = x; SendParams(); });
-		p4.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP4, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP4 = x; SendParams(); });
-		p5.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP5, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP5 = x; SendParams(); });
-		p6.ParamLink(0.0f, 1.0f, 0.0f, enveParams.enveP6, [this, index = selectedEnvelope](float x) { this->params.enveParams[index].enveP6 = x; SendParams(); });
+		const std::string prefix = "enve" + std::to_string(selectedEnvelope + 1);
+		DirtynthUIHelpers::BindKnob(amount1, paramTools, params, paramDescs, prefix + "Amount1", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(amount2, paramTools, params, paramDescs, prefix + "Amount2", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(p1, paramTools, params, paramDescs, prefix + "P1", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(p2, paramTools, params, paramDescs, prefix + "P2", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(p3, paramTools, params, paramDescs, prefix + "P3", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(p4, paramTools, params, paramDescs, prefix + "P4", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(p5, paramTools, params, paramDescs, prefix + "P5", [this]() { SendParams(); });
+		DirtynthUIHelpers::BindKnob(p6, paramTools, params, paramDescs, prefix + "P6", [this]() { SendParams(); });
 	}
 
 	void Refresh()
@@ -534,17 +587,19 @@ public:
 		envView.setBounds(0, (64 - 32) / 2, 96, 24);
 		envType.setBounds(96 + 16, (64 - 32) / 2, 96, 24);
 		envMode.setBounds(192 + 32, (64 - 32) / 2, 96, 24);
-		envTarget.setBounds(288 + 48, (64 - 32) / 2, 128, 24);
-		amount.setBounds(416 + 64, 0, 64, 64);
-		p1.setBounds(480 + 64, 0, 64, 64);
-		p2.setBounds(544 + 64, 0, 64, 64);
-		p3.setBounds(608 + 64, 0, 64, 64);
-		p4.setBounds(672 + 64, 0, 64, 64);
-		p5.setBounds(736 + 64, 0, 64, 64);
-		p6.setBounds(800 + 64, 0, 64, 64);
+		envTarget1.setBounds(288 + 48, 4, 128, 24);
+		envTarget2.setBounds(288 + 48, 36, 128, 24);
+		amount1.setBounds(416 + 64, 0, 64, 64);
+		amount2.setBounds(480 + 64, 0, 64, 64);
+		p1.setBounds(544 + 64, 0, 64, 64);
+		p2.setBounds(608 + 64, 0, 64, 64);
+		p3.setBounds(672 + 64, 0, 64, 64);
+		p4.setBounds(736 + 64, 0, 64, 64);
+		p5.setBounds(800 + 64, 0, 64, 64);
+		p6.setBounds(864 + 64, 0, 64, 64);
 	}
 
-	int GetTotalWidth() { return 416 + 64 + 64 * 7; }
+	int GetTotalWidth() { return 416 + 64 + 64 * 8; }
 };
 
 class DirtynthUI : public juce::Component, private juce::Timer
@@ -552,6 +607,9 @@ class DirtynthUI : public juce::Component, private juce::Timer
 private:
 	DirtynthSystem& instance;
 	DirtynthParams params;
+	DirtynthParamSystem paramTools;
+	std::vector<DirtynthUIHelpers::ParamDesc> paramDescs;
+
 	GlobalSetting globalSetting;
 	OscModulatorSetting oscModulatorSetting;
 	FilterModulatorSetting filterModulatorSetting;
@@ -561,8 +619,14 @@ private:
 	FilterSetting filter2Setting;
 	EnvelopeSetting envelopeSetting;
 
+	void RefreshParamDescs()
+	{
+		paramDescs = paramTools.GetParamList(params);
+	}
+
 	void RefreshFromParams()
 	{
+		RefreshParamDescs();
 		globalSetting.Refresh();
 		oscModulatorSetting.Refresh();
 		filterModulatorSetting.Refresh();
@@ -586,14 +650,15 @@ public:
 	DirtynthUI(DirtynthSystem& instance)
 		: instance(instance),
 		params(instance.GetParams()),
-		globalSetting(params, instance, [this]() { RefreshFromParams(); }),
-		oscModulatorSetting(params, instance),
-		filterModulatorSetting(params, instance),
-		osc1Setting(params, instance, 1),
-		osc2Setting(params, instance, 2),
-		filter1Setting(params, instance, 1),
-		filter2Setting(params, instance, 2),
-		envelopeSetting(params, instance)
+		paramDescs(paramTools.GetParamList(params)),
+		globalSetting(params, instance, paramTools, paramDescs, [this]() { RefreshFromParams(); }),
+		oscModulatorSetting(params, instance, paramTools, paramDescs),
+		filterModulatorSetting(params, instance, paramTools, paramDescs),
+		osc1Setting(params, instance, paramTools, paramDescs, 1, [this]() { RefreshFromParams(); }),
+		osc2Setting(params, instance, paramTools, paramDescs, 2, [this]() { RefreshFromParams(); }),
+		filter1Setting(params, instance, paramTools, paramDescs, 1, [this]() { RefreshFromParams(); }),
+		filter2Setting(params, instance, paramTools, paramDescs, 2, [this]() { RefreshFromParams(); }),
+		envelopeSetting(params, instance, paramTools, paramDescs, [this]() { RefreshFromParams(); })
 	{
 		addAndMakeVisible(globalSetting);
 		addAndMakeVisible(oscModulatorSetting);

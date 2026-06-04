@@ -284,6 +284,7 @@ namespace Dirtynth
 		/*-------------------*/
 		MutantThreadPool* mutantThreadPool;
 		DirtynthParamSystem* paramTools;
+		DirtynthParams* amountMul;
 	public:
 		DirtynthVoice()
 		{
@@ -300,6 +301,10 @@ namespace Dirtynth
 		void SetParamTools(DirtynthParamSystem* tools)
 		{
 			paramTools = tools;
+		}
+		void SetAmountMultiplier(DirtynthParams* amountMult)
+		{
+			this->amountMul = amountMult;
 		}
 
 		void SetSampleRate(float sr)
@@ -318,6 +323,7 @@ namespace Dirtynth
 		}
 
 		Envelope* enves[NumEnvelopes];
+		float tmpval;
 		float* modTarget1[NumEnvelopes * 2];
 		float* modTarget2[NumEnvelopes * 2];
 		float modOrigin1[NumEnvelopes * 2];
@@ -341,8 +347,10 @@ namespace Dirtynth
 			}
 			for (int i = 0; i < NumEnvelopes; ++i)
 			{
-				modTarget1[i] = &paramTools->GetParamRefByID(target, origin.enveParams[i].targetID1);
-				modTarget2[i] = &paramTools->GetParamRefByID(target, origin.enveParams[i].targetID2);
+				if ((int)origin.enveParams[i].targetID1 < 1.0) modTarget1[i] = &tmpval;
+				else modTarget1[i] = &paramTools->GetParamRefByID(target, origin.enveParams[i].targetID1);
+				if ((int)origin.enveParams[i].targetID2 < 1.0) modTarget2[i] = &tmpval;
+				else modTarget2[i] = &paramTools->GetParamRefByID(target, origin.enveParams[i].targetID2);
 				modOrigin1[i] = paramTools->GetParamRefByID(origin, origin.enveParams[i].targetID1);
 				modOrigin2[i] = paramTools->GetParamRefByID(origin, origin.enveParams[i].targetID2);
 				modAmountMul1[i] = paramTools->GetParamRefByID(amountMul, origin.enveParams[i].targetID1);
@@ -364,7 +372,6 @@ namespace Dirtynth
 		void ProcessBlockAccumulating(DirtynthParams& paramsInput, float* outl, float* outr, int numSamples)//输出直接叠加在原块上
 		{
 			DirtynthParams params = paramsInput;
-			DirtynthParams amountMul = paramTools->GetModulatorAmountMultiplier(paramsInput);
 
 			int selectedOsc1MutantAType = params.osc1Params.mutantA.mutantType;
 			int selectedOsc1MutantBType = params.osc1Params.mutantB.mutantType;
@@ -376,7 +383,7 @@ namespace Dirtynth
 			Filter& filter2 = *std::dynamic_pointer_cast<Filter>(regFilt2[selectedFilt2Type]);
 
 			/*将被调制的参数指针，以及原始的参数指针打包*/
-			InitModulator(params, paramsInput, amountMul);
+			InitModulator(params, paramsInput, *amountMul);
 			ApplyModulator();
 
 			/*PROCESSOR*/
@@ -423,7 +430,7 @@ namespace Dirtynth
 					}
 					//根据params更新滤波器参数
 					float cutoffTrackValue1 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
-					float cutoffTrackValue2 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
+					float cutoffTrackValue2 = powf(voicefreq / 55.0, params.filt2Params.keyTrack);
 					filter1.SetFilterParams(
 						params.filt1Params.cutoff * cutoffTrackValue1,
 						params.filt1Params.reso, params.filt1Params.morph);
@@ -431,8 +438,8 @@ namespace Dirtynth
 						params.filt2Params.cutoff * cutoffTrackValue2,
 						params.filt2Params.reso, params.filt2Params.morph);
 					//更新oscillator频率
-					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune) / 12.0);
-					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune) / 12.0);
+					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 100.0f) / 12.0);
+					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 100.0f) / 12.0);
 				}
 				/*OSC PROCESS*/
 				float osc1out = osc1.ProcessSample(osc1dt);
@@ -441,7 +448,7 @@ namespace Dirtynth
 				if (osc1pmv < -60.0)osc1pmv = -60.0;
 				float osc2out = osc2.ProcessSample(osc2dt, osc1pmv);
 				osc1out *= params.osc1gain;
-				osc1out *= params.osc2gain;
+				osc2out *= params.osc2gain;
 
 				/*FILTER PROCESS*/
 				float filt1in = (systopo == 0 || systopo == 1) ? osc1out : osc1out + osc2out;
@@ -506,6 +513,7 @@ namespace Dirtynth
 	public:
 	private:
 		DirtynthParams params, nextParams;
+		DirtynthParams amountMul;
 		DirtynthParamSystem paramTools;
 
 		DirtynthVoice voices[MaxPolyphony];
@@ -522,6 +530,7 @@ namespace Dirtynth
 			{
 				voices[i].SetMutantThreadPool(&mutantThreadPool);
 				voices[i].SetParamTools(&paramTools);
+				voices[i].SetAmountMultiplier(&amountMul);
 			}
 		}
 		void SetSampleRate(float sr)
@@ -532,6 +541,7 @@ namespace Dirtynth
 		void SetParams(const DirtynthParams& newParams)
 		{
 			nextParams = newParams;
+			amountMul = paramTools.GetModulatorAmountMultiplier(nextParams);
 		}
 		DirtynthParams GetParams() const
 		{
@@ -608,7 +618,7 @@ namespace Dirtynth
 				AutoFlagVoiceState();//每处理一个midi事件就更新一次voice状态
 				if (midiQueue[i].type == DirtynthMidiEvent::NoteOn)
 				{
-					int octave = (int)((params.octave - 0.5) * 2.0 * 4.0) * 12;//+-4 octave
+					int octave = floorf(params.octave) * 12;//+-4 octave
 					float freq = 440.0f * powf(2.0f, (midiQueue[i].note + octave - 69) / 12.0f);
 					float velocity = midiQueue[i].velocity / 127.0f;
 					int nextIdx = FindNextVoiceIdx();
@@ -648,7 +658,7 @@ namespace Dirtynth
 			{
 				voices[i].ProcessBlockAccumulating(params, outl, outr, numSamples);
 			}
-			float masterVol = params.masterVol * 0.005;
+			float masterVol = powf(10.0f, params.masterVol / 20.0f) * 0.005;//这个0.005补偿音量
 			for (int i = 0; i < numSamples; ++i)
 			{
 				outl[i] *= masterVol;
