@@ -379,4 +379,126 @@ namespace IIRBlep2
 		}
 	};
 
+	class IIRBlepDelayInject
+	{
+	private:
+		TwoPoleModal twoPoles[IIRBlepCoeffs::NumTwoPoles];
+		OnePoleModal onePoles[IIRBlepCoeffs::NumOnePoles];
+		float v = 0.0f;
+
+		constexpr static int MaxInjectDelay = 128;
+		float twoPoleG1[IIRBlepCoeffs::NumTwoPoles][MaxInjectDelay] = { 0 };
+		float twoPoleG2[IIRBlepCoeffs::NumTwoPoles][MaxInjectDelay] = { 0 };
+		float onePoleG1[IIRBlepCoeffs::NumOnePoles][MaxInjectDelay] = { 0 };
+		int pos = 0;
+	public:
+		IIRBlepDelayInject()
+		{
+			for (int i = 0; i < IIRBlepCoeffs::NumTwoPoles; ++i) {
+				const float pre = IIRBlepCoeffs::twoPoleParams[i * 2 + 0];
+				const float pim = IIRBlepCoeffs::twoPoleParams[i * 2 + 1];
+				twoPoles[i].CalcPole(pre, pim);
+			}
+
+			for (int i = 0; i < IIRBlepCoeffs::NumOnePoles; ++i) {
+				onePoles[i].CalcPole(IIRBlepCoeffs::onePoleParams[i]);
+			}
+
+			IIRBlepUtils::BuildTables();
+		}
+
+		void Add(float linear_gain, float where, int mode = 1)
+		{
+			if (mode < IIRBlepUtils::BLIT_MODE || mode > IIRBlepUtils::BLAMP_MODE) return;
+
+			where += MaxInjectDelay * 0.5f;
+			int idx = where;
+			float tau = where - idx;
+
+			if (tau < 0.0f) tau = 0.0f;
+			if (tau >= 1.0f) tau = 0.999999999999f;
+
+			const float fpos = tau * (float)(IIRBlepUtils::TableSize - 1);
+			const int index1 = (int)fpos;
+			const int index2 = index1 + 1;
+			const float frac = fpos - (float)index1;
+
+			const float(*twoPoleG1Table)[IIRBlepUtils::TableSize] = IIRBlepUtils::twoPoleBlitG1Table;
+			const float(*twoPoleG2Table)[IIRBlepUtils::TableSize] = IIRBlepUtils::twoPoleBlitG2Table;
+			const float(*onePoleG1Table)[IIRBlepUtils::TableSize] = IIRBlepUtils::onePoleBlitG1Table;
+
+			if (mode == IIRBlepUtils::BLEP_MODE) {
+				twoPoleG1Table = IIRBlepUtils::twoPoleBlepG1Table;
+				twoPoleG2Table = IIRBlepUtils::twoPoleBlepG2Table;
+				onePoleG1Table = IIRBlepUtils::onePoleBlepG1Table;
+			}
+			else if (mode == IIRBlepUtils::BLAMP_MODE) {
+				twoPoleG1Table = IIRBlepUtils::twoPoleBlampG1Table;
+				twoPoleG2Table = IIRBlepUtils::twoPoleBlampG2Table;
+				onePoleG1Table = IIRBlepUtils::onePoleBlampG1Table;
+			}
+
+			int pos2 = MaxInjectDelay + pos;
+			int injectPos = (pos2 - idx) % MaxInjectDelay;
+
+			for (int i = 0; i < IIRBlepCoeffs::NumTwoPoles; ++i) {
+				const float g1 = IIRBlepUtils::LerpTable(twoPoleG1Table[i], index1, index2, frac) * linear_gain;
+				const float g2 = IIRBlepUtils::LerpTable(twoPoleG2Table[i], index1, index2, frac) * linear_gain;
+
+				twoPoleG1[i][injectPos] += g1;
+				twoPoleG2[i][injectPos] += g2;
+			}
+
+			for (int i = 0; i < IIRBlepCoeffs::NumOnePoles; ++i) {
+				const float g1 = IIRBlepUtils::LerpTable(onePoleG1Table[i], index1, index2, frac) * linear_gain;
+
+				onePoleG1[i][injectPos] += g1;
+			}
+		}
+
+		void Step()
+		{
+			float y = 0.0f;
+			for (int i = 0; i < IIRBlepCoeffs::NumTwoPoles; ++i) {
+				twoPoles[i].InjectEvent(twoPoleG1[i][pos], twoPoleG2[i][pos]);
+				twoPoleG1[i][pos] = 0.0f;
+				twoPoleG2[i][pos] = 0.0f;
+
+				y += twoPoles[i].ProcessSample();
+			}
+			for (int i = 0; i < IIRBlepCoeffs::NumOnePoles; ++i) {
+				onePoles[i].InjectEvent(onePoleG1[i][pos]);
+				onePoleG1[i][pos] = 0.0f;
+
+				y += onePoles[i].ProcessSample();
+			}
+			v = y;
+			pos++;
+			if (pos >= MaxInjectDelay) pos = 0;
+		}
+
+		float Get()
+		{
+			return v;
+		}
+
+		void Reset()
+		{
+			for (int i = 0; i < IIRBlepCoeffs::NumTwoPoles; ++i) {
+				twoPoles[i].Reset();
+				for (int j = 0; j < MaxInjectDelay; ++j) {
+					twoPoleG1[i][j] = 0.0f;
+					twoPoleG2[i][j] = 0.0f;
+				}
+			}
+			for (int i = 0; i < IIRBlepCoeffs::NumOnePoles; ++i) {
+				onePoles[i].Reset();
+				for (int j = 0; j < MaxInjectDelay; ++j) {
+					onePoleG1[i][j] = 0.0f;
+				}
+			}
+			pos = 0;
+			v = 0.0f;
+		}
+	};
 }

@@ -80,7 +80,7 @@ public:
 	}
 };
 
-class Lagrange4thBlep
+class Lagrange4thBlepDelayInject
 {
 private:
 	constexpr static int MaxInjectDelay = 128;
@@ -98,7 +98,7 @@ private:
 	}
 	const float blepIntV = 15.0f / 16.0f;
 public:
-	Lagrange4thBlep()
+	Lagrange4thBlepDelayInject()
 	{
 		for (auto& n : z)n = 0;
 	}
@@ -148,6 +148,74 @@ public:
 		z[pos] = 0;
 		pos++;
 		if (pos >= MaxInjectDelay)pos = 0;
+	}
+	float Get()
+	{
+		return v;
+	}
+}; 
+
+class Lagrange4thBlep
+{
+private:
+	float z1 = 0, z2 = 0, z3 = 0, z4 = 0;
+	float v = 0.0;
+
+	inline float SquareWelch(float x)
+	{
+		x = (x - 2.0f) * 0.5f;
+		x = x * x;
+		x = 1.0f - x;
+		x = x * x;
+		return x;
+	}
+	const float blepIntV = 15.0f / 16.0f;
+	IirDcCompensator dcc;
+public:
+	void Add(float amp, float where, int stage = 1)
+	{
+		float p1 = 0.0, p2 = 0.0, p3 = 0.0, p4 = 0.0;
+		float x = where;
+		if (stage == 0)
+		{
+			float q = x * (x - 1.0f);
+			float r = q * (1.0f / 6.0f);
+			p1 = r * (x + 1.0f);
+			float r3 = r + r + r;
+			float p1_3 = p1 + p1 + p1;
+			p2 = x + r3 - p1_3;
+			p4 = r3 - p1;
+			p3 = 1.0f - p1 - p2 - p4;
+		}
+		else if (stage == 1)
+		{
+			float x2 = x * x;
+			p1 = -1.0f + x2 * (-1.0f / 12.0f + x2 * (1.0f / 24.0f));
+			p2 = -25.0f / 24.0f + x2 * (1.0f / 2.0f + x * (1.0f / 6.0f + x * (-1.0f / 8.0f)));
+			p3 = -1.0f / 2.0f + x * (1.0f + x * (-1.0f / 4.0f + x * (-1.0f / 3.0f + x * (1.0f / 8.0f))));
+			p4 = 1.0f / 24.0f + x2 * (-1.0f / 6.0f + x * (1.0f / 6.0f + x * (-1.0f / 24.0f)));
+		}
+		else if (stage == 2)
+		{
+			p1 = x * (-1.0f + x * x * (41.0f / 144.0f + x * (-15.0f / 128.0f + x * (77.0f / 3840.0f))));
+			p2 = -9359.0f / 11520.0f + x * (-395.0f / 768.0f + x * (45.0f / 128.0f + x * (49.0f / 384.0f + x * (-13.0f / 768.0f + x * (-17.0f / 1280.0f)))));
+			p3 = -79.0f / 90.0f + x * (7.0f / 16.0f + x * (1.0f / 2.0f + x * (-23.0f / 96.0f + x * (-1.0f / 12.0f + x * (47.0f / 1280.0f)))));
+			p4 = -2609.0f / 11520.0f + x * (437.0f / 768.0f + x * (-45.0f / 128.0f + x * (-109.0f / 1152.0f + x * (77.0f / 768.0f + x * (13.0f / 3840.0f)))));
+		}
+
+		//µþ¼Ó²Ð²î
+		z1 = z1 + p1 * amp;
+		z2 = z2 + p2 * amp;
+		z3 = z3 + p3 * amp;
+		z4 = z4 + p4 * amp;
+	}
+	void Step()
+	{
+		v = z1;
+		z1 = z2;
+		z2 = z3;
+		z3 = z4;
+		z4 = 0;
 	}
 	float Get()
 	{

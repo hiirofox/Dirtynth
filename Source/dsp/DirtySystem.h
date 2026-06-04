@@ -383,7 +383,7 @@ namespace Dirtynth
 				}
 				/*OSC PROCESS*/
 				float osc1out = osc1.ProcessSample(osc1dt);
-				float osc1pmv = params.pmDepth /* *pmBase* 100.0*/ * osc1out;//乘voiceDtBase让pm输入幅度与频率去相关
+				float osc1pmv = osc1.GetNowNaiveSample() * params.pmDepth * pmBase;//乘voiceDtBase让pm输入幅度与频率去相关
 				if (osc1pmv > 60.0)osc1pmv = 60.0;
 				if (osc1pmv < -60.0)osc1pmv = -60.0;
 				float osc2out = osc2.ProcessSample(osc2dt, osc1pmv);
