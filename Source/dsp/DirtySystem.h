@@ -5,15 +5,11 @@
 #include "Wavetable.h"
 #include "Filter.h"
 #include "Envelope.h"
-
-#include "Cpptools.h"
+#include "DirtyParams.h"
 
 namespace Dirtynth
 {
 	using namespace MinusMKI;
-
-	constexpr static int NumEnvelopes = 6;
-	constexpr static int NumEffects = 2;
 
 	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好
 	constexpr static int MaxPolyphony = 8;
@@ -75,6 +71,7 @@ namespace Dirtynth
 
 
 	/*TOOLS FUNCTION*/
+	//应该用不到这些了
 	constexpr static float CutoffMin = 20.0;
 	constexpr static float CutoffMax = 22000.0;
 	constexpr static float ResoMin = 0.707;
@@ -286,6 +283,7 @@ namespace Dirtynth
 		int osc2MutantTaskID = -1;
 		/*-------------------*/
 		MutantThreadPool* mutantThreadPool;
+		DirtynthParamSystem* paramTools;
 	public:
 		DirtynthVoice()
 		{
@@ -298,6 +296,10 @@ namespace Dirtynth
 		void SetMutantThreadPool(MutantThreadPool* pool)
 		{
 			mutantThreadPool = pool;
+		}
+		void SetParamTools(DirtynthParamSystem* tools)
+		{
+			paramTools = tools;
 		}
 
 		void SetSampleRate(float sr)
@@ -314,90 +316,82 @@ namespace Dirtynth
 				for (int j = 0; j < NumEnvelopes; ++j)
 					regEnves[j][i]->SetSampleRate(sr / EnvelopeUpdateInterval);//根据间隔设置采样率
 		}
+
+		Envelope* enves[NumEnvelopes];
+		float* modTarget1[NumEnvelopes * 2];
+		float* modTarget2[NumEnvelopes * 2];
+		float modOrigin1[NumEnvelopes * 2];
+		float modOrigin2[NumEnvelopes * 2];
+		float modAmount1[NumEnvelopes * 2];
+		float modAmount2[NumEnvelopes * 2];
+		float modAmountMul1[NumEnvelopes * 2];
+		float modAmountMul2[NumEnvelopes * 2];
+		void InitModulator(DirtynthParams& target, DirtynthParams& origin, DirtynthParams& amountMul)
+		{
+			for (int i = 0; i < NumEnvelopes; ++i) enves[i] = regEnves[i][(int)origin.enveParams[i].type].get();
+			for (int j = 0; j < NumEnvelopes; ++j)
+			{
+				float p1 = origin.enveParams[j].p1;
+				float p2 = origin.enveParams[j].p2;
+				float p3 = origin.enveParams[j].p3;
+				float p4 = origin.enveParams[j].p4;
+				float p5 = origin.enveParams[j].p5;
+				float p6 = origin.enveParams[j].p6;
+				enves[j]->SetParams(p1, p2, p3, p4, p5, p6);
+			}
+			for (int i = 0; i < NumEnvelopes; ++i)
+			{
+				modTarget1[i] = &paramTools->GetParamRefByID(target, origin.enveParams[i].targetID1);
+				modTarget2[i] = &paramTools->GetParamRefByID(target, origin.enveParams[i].targetID2);
+				modOrigin1[i] = paramTools->GetParamRefByID(origin, origin.enveParams[i].targetID1);
+				modOrigin2[i] = paramTools->GetParamRefByID(origin, origin.enveParams[i].targetID2);
+				modAmountMul1[i] = paramTools->GetParamRefByID(amountMul, origin.enveParams[i].targetID1);
+				modAmountMul2[i] = paramTools->GetParamRefByID(amountMul, origin.enveParams[i].targetID2);
+				modAmount1[i] = origin.enveParams[i].amount1;
+				modAmount2[i] = origin.enveParams[i].amount2;
+			}
+		}
+		void ApplyModulator()
+		{
+			for (int j = 0; j < NumEnvelopes; ++j) enves[j]->Step();
+			for (int j = 0; j < NumEnvelopes; ++j)
+			{
+				float enveval = enves[j]->GetValue();
+				*modTarget1[j] = modOrigin1[j] + enveval * modAmount1[j] * modAmountMul1[j];
+				*modTarget2[j] = modOrigin2[j] + enveval * modAmount2[j] * modAmountMul2[j];
+			}
+		}
 		void ProcessBlockAccumulating(DirtynthParams& paramsInput, float* outl, float* outr, int numSamples)//输出直接叠加在原块上
 		{
 			DirtynthParams params = paramsInput;
+			DirtynthParams amountMul = paramTools->GetModulatorAmountMultiplier(paramsInput);
+
 			int selectedOsc1MutantAType = params.osc1Params.mutantA.mutantType;
 			int selectedOsc1MutantBType = params.osc1Params.mutantB.mutantType;
 			int selectedOsc2MutantAType = params.osc2Params.mutantA.mutantType;
 			int selectedOsc2MutantBType = params.osc2Params.mutantB.mutantType;
 			int selectedFilt1Type = params.filt1Params.type;
 			int selectedFilt2Type = params.filt2Params.type;
-			int selectedEnveTarget[NumEnvelopes];
-			for (int i = 0; i < NumEnvelopes; ++i) selectedEnveTarget[i] = params.enveParams[i].enveTarget;
 			Filter& filter1 = *std::dynamic_pointer_cast<Filter>(regFilt1[selectedFilt1Type]);
 			Filter& filter2 = *std::dynamic_pointer_cast<Filter>(regFilt2[selectedFilt2Type]);
-			Envelope* enves[NumEnvelopes];
-			for (int i = 0; i < NumEnvelopes; ++i) enves[i] = regEnves[i][params.enveParams[i].enveType].get();
-			//设置包络参数(包络参数不需要被调制)
-			for (int j = 0; j < NumEnvelopes; ++j)
-			{
-				float p1, p2, p3, p4, p5, p6;
-				if (params.enveParams[j].enveType == 0)//ADSR
-				{
-					p1 = ParamToEnveTime(params.enveParams[j].enveP1);//attMs
-					p2 = ParamToEnveShape(params.enveParams[j].enveP2);//attShape
-					p3 = ParamToEnveTime(params.enveParams[j].enveP3);//decMs
-					p4 = ParamToEnveShape(params.enveParams[j].enveP4);//decShape
-					p5 = params.enveParams[j].enveP5;//susLevel
-					p6 = ParamToEnveTime(params.enveParams[j].enveP6);//relMs
-				}
-				else
-				{
-					p1 = params.enveParams[j].enveP1;
-					p2 = params.enveParams[j].enveP2;
-					p3 = params.enveParams[j].enveP3;
-					p4 = params.enveParams[j].enveP4;
-					p5 = params.enveParams[j].enveP5;
-					p6 = params.enveParams[j].enveP6;
-				}
-				enves[j]->SetParams(p1, p2, p3, p4, p5, p6);
-			}
-			/*将被调制的参数指针，以及原始的参数指针打包*/
-			float* paramsArray = reinterpret_cast<float*>(&params);
-			float* origParamsArray = reinterpret_cast<float*>(&paramsInput);
-			float* paramTargetPtr[NumEnvelopes] = { nullptr };
-			float* paramOriginalValue[NumEnvelopes] = { nullptr };
 
-			for (int j = 0; j < NumEnvelopes; ++j)
-			{
-				int targetParamIdx = params.enveParams[j].enveTarget;
-				if (targetParamIdx >= 0 && targetParamIdx < sizeof(DirtynthParams) / sizeof(float))
-				{
-					paramTargetPtr[j] = &paramsArray[targetParamIdx];
-					paramOriginalValue[j] = &origParamsArray[targetParamIdx];
-				}
-				else
-				{
-					paramTargetPtr[j] = nullptr;
-					paramOriginalValue[j] = nullptr;
-				}
-			}
-			//根据enveTarget和enveAmount修改params
-			for (int j = 0; j < NumEnvelopes; ++j)
-			{
-				if (paramTargetPtr[j] != nullptr)
-					*paramTargetPtr[j] = *paramOriginalValue[j] + enves[j]->GetValue() * params.enveParams[j].enveAmount;
-			}
+			/*将被调制的参数指针，以及原始的参数指针打包*/
+			InitModulator(params, paramsInput, amountMul);
+			ApplyModulator();
 
 			/*PROCESSOR*/
 			float voiceDtBase = voicefreq / sampleRate;
 			float pmBase = voiceDtBase * 10.0;
 			voiceStateVolume = 0.0;
+			int systopo = params.sysTopo;
 			for (int i = 0; i < numSamples; ++i)
 			{
 				sampleCount++;
 				if (sampleCount >= EnvelopeUpdateInterval)
 				{
 					sampleCount = 0;
-					//更新包络
-					for (int j = 0; j < NumEnvelopes; ++j) enves[j]->Step();
-					//根据enveTarget和enveAmount修改params
-					for (int j = 0; j < NumEnvelopes; ++j)
-					{
-						if (paramTargetPtr[j] != nullptr)
-							*paramTargetPtr[j] = *paramOriginalValue[j] + enves[j]->GetValue() * params.enveParams[j].enveAmount;
-					}
+					ApplyModulator();//更新包络并应用
+
 					//检查oscillator的intMagtable是否需要更新，并更新
 					if (osc1MutantTaskID == -1 && osc1.IsSwapTablePrepared())
 					{
@@ -431,11 +425,11 @@ namespace Dirtynth
 					float cutoffTrackValue1 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
 					float cutoffTrackValue2 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
 					filter1.SetFilterParams(
-						ParamToCutoff(params.filt1Params.cutoff) * cutoffTrackValue1,
-						ParamToReso(params.filt1Params.reso), params.filt1Params.morph);
+						params.filt1Params.cutoff * cutoffTrackValue1,
+						params.filt1Params.reso, params.filt1Params.morph);
 					filter2.SetFilterParams(
-						ParamToCutoff(params.filt2Params.cutoff) * cutoffTrackValue2,
-						ParamToReso(params.filt2Params.reso), params.filt2Params.morph);
+						params.filt2Params.cutoff * cutoffTrackValue2,
+						params.filt2Params.reso, params.filt2Params.morph);
 					//更新oscillator频率
 					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune) / 12.0);
 					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune) / 12.0);
@@ -446,11 +440,21 @@ namespace Dirtynth
 				if (osc1pmv > 60.0)osc1pmv = 60.0;
 				if (osc1pmv < -60.0)osc1pmv = -60.0;
 				float osc2out = osc2.ProcessSample(osc2dt, osc1pmv);
-				float oscout = (osc1out + (osc2out - osc1out) * params.oscMix) * params.oscAmp;
+				osc1out *= params.osc1gain;
+				osc1out *= params.osc2gain;
+
 				/*FILTER PROCESS*/
-				float filt1out = filter1.ProcessSample(oscout);
-				float filt2out = filter2.ProcessSample(oscout + (filt1out - oscout) * params.filt2SwitchIn);
-				float filtout = filt1out + (filt2out - filt1out) * params.filtMix;
+				float filt1in = (systopo == 0 || systopo == 1) ? osc1out : osc1out + osc2out;
+				float filt1out = filter1.ProcessSample(filt1in) * params.filt1gain;
+				float filt2in = 0;
+				if (systopo == 0)filt2in = osc2out;
+				else if (systopo == 1)filt2in = osc2out + filt1out;
+				else if (systopo == 2)filt2in = filt1out;
+				else if (systopo == 3)filt2in = osc1out + osc2out;
+				float filt2out = filter2.ProcessSample(filt2in) * params.filt2gain;
+				float filtout = (systopo == 0 || systopo == 3) ? filt1out + filt2out : filt2out;
+				filtout *= params.outputAmp;
+
 				/*OUTPUT*/
 				float output = filtout * voiceVel;
 				outl[i] += output;
@@ -478,7 +482,7 @@ namespace Dirtynth
 			std::array<Envelope*, NumEnvelopes> enves{};
 			for (int i = 0; i < NumEnvelopes; ++i)
 			{
-				int envelopeType = static_cast<int>(params.enveParams[i].enveType);
+				int envelopeType = static_cast<int>(params.enveParams[i].type);
 				if (envelopeType < 0)envelopeType = 0;
 				if (envelopeType >= RegEnvelope::NumRegEnvelope)envelopeType = RegEnvelope::NumRegEnvelope - 1;
 				enves[i] = regEnves[i][envelopeType].get();
@@ -502,6 +506,8 @@ namespace Dirtynth
 	public:
 	private:
 		DirtynthParams params, nextParams;
+		DirtynthParamSystem paramTools;
+
 		DirtynthVoice voices[MaxPolyphony];
 		MutantThreadPool mutantThreadPool;
 		int voiceBelongNote[MaxPolyphony] = { -1 };//记录每个voice当前属于哪个midi note，-1表示不属于任何note了
@@ -513,7 +519,10 @@ namespace Dirtynth
 		DirtynthSystem()
 		{
 			for (int i = 0; i < MaxPolyphony; ++i)
+			{
 				voices[i].SetMutantThreadPool(&mutantThreadPool);
+				voices[i].SetParamTools(&paramTools);
+			}
 		}
 		void SetSampleRate(float sr)
 		{
@@ -553,10 +562,10 @@ namespace Dirtynth
 				auto enves = voices[i].GetSelectedEnvelops(params);
 				for (int j = 0; j < NumEnvelopes; ++j)
 				{
-					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnFirstNoteOn)//全局，按下第一个键开始
+					if (static_cast<EnvelopeMode>((int)params.enveParams[j].mode) == EnvelopeMode::GlobalResetOnFirstNoteOn)//全局，按下第一个键开始
 						if (midiNumNoteOn == 0)
 							enves[j]->SetNoteState(1);
-					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnAnyNoteOn)//全局，按下任意键开始
+					if (static_cast<EnvelopeMode>((int)params.enveParams[j].mode) == EnvelopeMode::GlobalResetOnAnyNoteOn)//全局，按下任意键开始
 						enves[j]->SetNoteState(1);
 				}
 			}
@@ -564,7 +573,7 @@ namespace Dirtynth
 			auto enves = voice.GetSelectedEnvelops(params);
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
-				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
+				if (static_cast<EnvelopeMode>((int)params.enveParams[j].mode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
 					enves[j]->SetNoteState(1);
 			}
 		}
@@ -576,8 +585,8 @@ namespace Dirtynth
 				auto enves = voices[i].GetSelectedEnvelops(params);
 				for (int j = 0; j < NumEnvelopes; ++j)
 				{
-					if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnFirstNoteOn ||
-						static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::GlobalResetOnAnyNoteOn)
+					if (static_cast<EnvelopeMode>((int)params.enveParams[j].mode) == EnvelopeMode::GlobalResetOnFirstNoteOn ||
+						static_cast<EnvelopeMode>((int)params.enveParams[j].mode) == EnvelopeMode::GlobalResetOnAnyNoteOn)
 						if (midiNumNoteOn == 0)//全局都是松开最后一个键时重置
 							enves[j]->SetNoteState(0);
 				}
@@ -586,7 +595,7 @@ namespace Dirtynth
 			auto enves = voice.GetSelectedEnvelops(params);
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
-				if (static_cast<EnvelopeMode>((int)params.enveParams[j].enveMode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
+				if (static_cast<EnvelopeMode>((int)params.enveParams[j].mode) == EnvelopeMode::PolyphonicResetOnNoteOn)//复音，按下时开始
 					enves[j]->SetNoteState(0);
 			}
 		}

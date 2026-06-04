@@ -3588,6 +3588,12 @@
     <ClInclude Include="..\..\Source\dsp\DirtySystem.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\Cpptools.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\DirtyParams.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\Envelope.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>

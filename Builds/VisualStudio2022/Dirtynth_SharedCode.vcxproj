@@ -2843,6 +2843,8 @@
     <ClInclude Include="..\..\Source\dsp\effects\effects.h"/>
     <ClInclude Include="..\..\Source\dsp\presets\presets.h"/>
     <ClInclude Include="..\..\Source\dsp\DirtySystem.h"/>
+    <ClInclude Include="..\..\Source\dsp\Cpptools.h"/>
+    <ClInclude Include="..\..\Source\dsp\DirtyParams.h"/>
     <ClInclude Include="..\..\Source\dsp\Envelope.h"/>
     <ClInclude Include="..\..\Source\dsp\Filter.h"/>
     <ClInclude Include="..\..\Source\dsp\IIRBlep.h"/>

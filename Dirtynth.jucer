@@ -29,6 +29,8 @@
           <FILE id="Fp3wuS" name="presets.h" compile="0" resource="0" file="Source/dsp/presets/presets.h"/>
         </GROUP>
         <FILE id="GArvah" name="DirtySystem.h" compile="0" resource="0" file="Source/dsp/DirtySystem.h"/>
+        <FILE id="Q8olbz" name="Cpptools.h" compile="0" resource="0" file="Source/dsp/Cpptools.h"/>
+        <FILE id="CQvk1G" name="DirtyParams.h" compile="0" resource="0" file="Source/dsp/DirtyParams.h"/>
         <FILE id="Lsf1Bt" name="Envelope.h" compile="0" resource="0" file="Source/dsp/Envelope.h"/>
         <FILE id="MxBvhD" name="Filter.h" compile="0" resource="0" file="Source/dsp/Filter.h"/>
         <FILE id="oY5Heu" name="IIRBlep.h" compile="0" resource="0" file="Source/dsp/IIRBlep.h"/>
