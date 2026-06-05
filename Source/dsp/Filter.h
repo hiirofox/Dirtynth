@@ -449,6 +449,8 @@ namespace MinusMKI
 		float interval = 0.0;
 		float gradient = 1.0 / 32.0;
 
+		//实际上诸如此类一阶全通还可以少一个乘法
+		//下次看到再修吧
 		float z1 = 0, z2 = 0;
 		inline float ProcessAPF(float& z, float x, float k)//k 0->1 : z^-1 -> 1
 		{
@@ -501,7 +503,7 @@ namespace MinusMKI
 			float xWithFB = x + bufout * fb;
 			float out = xWithFB + bufout;
 
-			buf[writePos] = ProcessDisperser<NumDispApf - 1>(ProcessDeDC(xWithFB), morph);
+			buf[writePos] = ProcessDisperser<NumDispApf - 1>(ProcessDeDC(xWithFB), -morph);
 			return out;
 		}
 		void Reset() override
@@ -515,13 +517,19 @@ namespace MinusMKI
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
 			if (cutoff < 10.0)cutoff = 10.0;
-			delayTime = sampleRate / cutoff - 1 - NumDispApf;
+
+			//delayTime = sampleRate / cutoff - 1 - NumDispApf;
+			float wp = 2.0f * cutoff / sampleRate;
+			float x = morph * cheapSinPi(wp) / (1.0f - morph * cheapCosPi(wp));
+			delayTime = sampleRate / cutoff - 1.0f
+				- NumDispApf * (1.0f + 2.0f / (3.14159265f * wp) * (x / (1.0f + 0.280872f * x * x)));
+
 			if (delayTime < 1)delayTime = 1;
 			if (delayTime > MaxBufferSize - 1)delayTime = MaxBufferSize - 1;
 			fb = 1.0 - 1.0 / reso;
 			if (fb < 0)fb = 0;
 			if (fb > 0.999)fb = 0.999;
-			this->morph = -morph;
+			this->morph = morph;
 
 			gainfix = sqrtf(1.0 - fb);
 		}
