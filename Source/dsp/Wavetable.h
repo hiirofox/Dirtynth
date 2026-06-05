@@ -79,7 +79,8 @@ namespace MinusMKI
 	class TableMutantSync :public TableMutant
 	{
 	public:
-		constexpr static float MaxFreqX = 16.0 / 8192.0;
+		constexpr static float MaxFreqX = 16.0;
+		constexpr static float normfreq = 1.0 / WTOscillator::TableWidth;
 	private:
 		float descTable[TableWidth] = { 0 };
 		float depth = 0, phase = 0, smooth = 0;
@@ -87,10 +88,10 @@ namespace MinusMKI
 	public:
 		void Apply(float* table, int numSamples) override
 		{
-			float dt = (MaxFreqX - 1.0) * depth + 1.0;
+			float dt = normfreq * ((MaxFreqX - 1.0) * depth + 1.0);
 			float t = 0;
 			float st = dt * numSamples;
-			float smooth1 = expf(-smooth * 12.0);
+			float smooth1 = expf(-smooth * 12.0) * 2048.0 / numSamples;
 			for (int i = 0; i < numSamples; ++i)
 			{
 				t += dt;
@@ -111,7 +112,7 @@ namespace MinusMKI
 		{
 			this->depth = depth;
 			this->phase = phase;
-			this->smooth = smooth;
+			this->smooth = 1.0 - smooth;
 		}
 	};
 	template<int TableWidth>
@@ -226,7 +227,7 @@ namespace MinusMKI
 		}
 		void SetMutantParams(float depth, float tmix, float rate) override
 		{
-			this->depth = depth;
+			this->depth = depth * depth;
 			this->tmix = tmix;
 			this->rate = 1.0 - rate;
 		}
@@ -323,7 +324,7 @@ namespace MinusMKI
 	class WTOscillator
 	{
 	public:
-		constexpr static int TableWidth = 8192;
+		constexpr static int TableWidth = 2048;
 	private:
 		IIRBlep2::IIRBlep blit;//只使用其blit功能
 		//Lagrange4thBlep blit;//其实也不错

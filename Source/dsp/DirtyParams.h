@@ -400,7 +400,7 @@ namespace Dirtynth
 			case 4:
 				return "Spread";
 			case 5:
-				return "Disperse";
+				return "Rigid";
 			case 6:
 				return "Stages";
 			default:

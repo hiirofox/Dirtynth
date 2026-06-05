@@ -319,7 +319,7 @@ namespace MinusMKI
 		float morph = 0;
 
 		float interval = 0.0;
-		float gradient = 1.0 / 16.0;
+		float gradient = 1.0 / 32.0;
 
 		float z1 = 0, z2 = 0;
 		inline float ProcessAPF(float& z, float x, float k)//k 0->1 : z^-1 -> 1
@@ -447,7 +447,7 @@ namespace MinusMKI
 		float morph = 0;
 
 		float interval = 0.0;
-		float gradient = 1.0 / 16.0;
+		float gradient = 1.0 / 32.0;
 
 		float z1 = 0, z2 = 0;
 		inline float ProcessAPF(float& z, float x, float k)//k 0->1 : z^-1 -> 1
