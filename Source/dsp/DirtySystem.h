@@ -500,7 +500,7 @@ namespace Dirtynth
 				if (!isVoiceActive[i])
 					return i;
 			for (int i = 0; i < MaxPolyphony; ++i)//再解决掉正在响但不按键的
-				if (!isNoteActive[voiceBelongNote[i]])
+				if (voiceBelongNote[i] == -1)
 					return i;
 			int idx = nextVoiceIdx;
 			nextVoiceIdx = (nextVoiceIdx + 1) % MaxPolyphony;//没有了只能循环分配
