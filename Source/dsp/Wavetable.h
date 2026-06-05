@@ -325,8 +325,8 @@ namespace MinusMKI
 	public:
 		constexpr static int TableWidth = 8192;
 	private:
-		IIRBlep2::IIRBlepDelayInject blit;//只使用其blit功能
-		//Lagrange4thBlepDelayInject blit;//其实也不错
+		IIRBlep2::IIRBlep blit;//只使用其blit功能
+		//Lagrange4thBlep blit;//其实也不错
 
 		float intMagtable1[TableWidth * 2] = { 0 };
 		float intMagtable2[TableWidth * 2] = { 0 };
@@ -519,7 +519,7 @@ namespace MinusMKI
 				//blit.Step();
 				//return mag * TableWidth + blit.Get();
 
-				blit.Add(mag * TableWidth, 0.0 + pm, 0);
+				blit.Add(mag * TableWidth, 0.0, 0);
 				blit.Step();
 				return blit.Get();
 			}
@@ -546,7 +546,7 @@ namespace MinusMKI
 						float magA = selectedTableA[idx];
 						float magB = selectedTableB[idx];
 						float mag = magA + (magB - magA) * sampleCounter;
-						blit.Add(mag * absOneDivDt, where + pm, 0);
+						blit.Add(mag * absOneDivDt, where, 0);
 					}
 				}
 				else if (udt < 0.0)
@@ -560,7 +560,7 @@ namespace MinusMKI
 						float magA = selectedTableA[idx];
 						float magB = selectedTableB[idx];
 						float mag = magA + (magB - magA) * sampleCounter;
-						blit.Add(mag * absOneDivDt, where + pm, 0);
+						blit.Add(mag * absOneDivDt, where, 0);
 					}
 				}
 
@@ -630,7 +630,6 @@ namespace MinusMKI
 			return mag * selectedTableWidth;
 		}
 		float ProcessSample(float dt, float pm = 0.0) {
-			//pm = 0.0;
 			return ProcessSampleHQ(dt, pm);
 		}
 		void SetStartPhase(float phase) { this->t = phase; }

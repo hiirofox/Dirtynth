@@ -160,18 +160,18 @@ namespace IIRBlepUtils
 		int poleIndex,
 		const float residues[],
 		float g1Table[IIRBlepCoeffs::NumTwoPoles][TableSize],
-		float g2Table[IIRBlepCoeffs::NumTwoPoles][TableSize])
+		float g2Table[IIRBlepCoeffs::NumTwoPoles][TableSize],
+		float cutoffScale = 1.0)
 	{
-		const float pre = IIRBlepCoeffs::twoPoleParams[poleIndex * 2 + 0];
-		const float pim = IIRBlepCoeffs::twoPoleParams[poleIndex * 2 + 1];
-		const float rre = residues[poleIndex * 2 + 0];
-		const float rim = residues[poleIndex * 2 + 1];
+		const float pre = IIRBlepCoeffs::twoPoleParams[poleIndex * 2 + 0] * cutoffScale;
+		const float pim = IIRBlepCoeffs::twoPoleParams[poleIndex * 2 + 1] * cutoffScale;
+		const float rre = residues[poleIndex * 2 + 0] * cutoffScale;
+		const float rim = residues[poleIndex * 2 + 1] * cutoffScale;
 		const float R = expf(pre * IIRBlepCoeffs::Ts);
 		const float O = pim * IIRBlepCoeffs::Ts;
 		const float a1 = -2.0f * R * cosf(O);
 		const float stepRe = R * cosf(O);
 		const float stepIm = R * sinf(O);
-
 		for (int i = 0; i < TableSize; ++i) {
 			const float tau = (float)i / (float)(TableSize - 1);
 			const float dt1 = tau * IIRBlepCoeffs::Ts;
@@ -192,11 +192,11 @@ namespace IIRBlepUtils
 	inline void BuildOnePoleTable(
 		int poleIndex,
 		const float residues[],
-		float g1Table[IIRBlepCoeffs::NumOnePoles][TableSize])
+		float g1Table[IIRBlepCoeffs::NumOnePoles][TableSize],
+		float cutoffScale = 1.0)
 	{
-		const float pre = IIRBlepCoeffs::onePoleParams[poleIndex];
-		const float residue = residues[poleIndex];
-
+		const float pre = IIRBlepCoeffs::onePoleParams[poleIndex] * cutoffScale;
+		const float residue = residues[poleIndex] * cutoffScale;
 		for (int i = 0; i < TableSize; ++i) {
 			const float tau = (float)i / (float)(TableSize - 1);
 			const float dt1 = tau * IIRBlepCoeffs::Ts;
@@ -204,20 +204,20 @@ namespace IIRBlepUtils
 		}
 	}
 
-	inline void BuildTables()
+	inline void BuildTables(float cutoffScale = 1.0)
 	{
 		if (isTableBuilt) return;
 
 		for (int i = 0; i < IIRBlepCoeffs::NumTwoPoles; ++i) {
-			BuildTwoPoleTable(i, IIRBlepCoeffs::twoPoleBlitResidues, twoPoleBlitG1Table, twoPoleBlitG2Table);
-			BuildTwoPoleTable(i, IIRBlepCoeffs::twoPoleBlepResidues, twoPoleBlepG1Table, twoPoleBlepG2Table);
-			BuildTwoPoleTable(i, IIRBlepCoeffs::twoPoleBlampResidues, twoPoleBlampG1Table, twoPoleBlampG2Table);
+			BuildTwoPoleTable(i, IIRBlepCoeffs::twoPoleBlitResidues, twoPoleBlitG1Table, twoPoleBlitG2Table, cutoffScale);
+			BuildTwoPoleTable(i, IIRBlepCoeffs::twoPoleBlepResidues, twoPoleBlepG1Table, twoPoleBlepG2Table, cutoffScale);
+			BuildTwoPoleTable(i, IIRBlepCoeffs::twoPoleBlampResidues, twoPoleBlampG1Table, twoPoleBlampG2Table, cutoffScale);
 		}
 
 		for (int i = 0; i < IIRBlepCoeffs::NumOnePoles; ++i) {
-			BuildOnePoleTable(i, IIRBlepCoeffs::onePoleBlitResidues, onePoleBlitG1Table);
-			BuildOnePoleTable(i, IIRBlepCoeffs::onePoleBlepResidues, onePoleBlepG1Table);
-			BuildOnePoleTable(i, IIRBlepCoeffs::onePoleBlampResidues, onePoleBlampG1Table);
+			BuildOnePoleTable(i, IIRBlepCoeffs::onePoleBlitResidues, onePoleBlitG1Table, cutoffScale);
+			BuildOnePoleTable(i, IIRBlepCoeffs::onePoleBlepResidues, onePoleBlepG1Table, cutoffScale);
+			BuildOnePoleTable(i, IIRBlepCoeffs::onePoleBlampResidues, onePoleBlampG1Table, cutoffScale);
 		}
 
 		isTableBuilt = true;
@@ -234,8 +234,8 @@ namespace IIRBlep2
 		inline float ProcessSample()
 		{
 			float y = z1;
-			z1 = -a1 * y + z2;
-			z2 = -a2 * y;
+			z1 = a1 * y + z2;
+			z2 = a2 * y;
 			return y;
 		}
 
@@ -243,8 +243,8 @@ namespace IIRBlep2
 		{
 			float R = expf(pre * IIRBlepCoeffs::Ts);
 			float O = pim * IIRBlepCoeffs::Ts;
-			a1 = -2.0f * R * cosf(O);
-			a2 = R * R;
+			a1 = 2.0f * R * cosf(O);
+			a2 = -R * R;
 		}
 
 		inline void InjectEvent(float g1, float g2)
@@ -268,13 +268,13 @@ namespace IIRBlep2
 		inline float ProcessSample()
 		{
 			float y = z1;
-			z1 = -a1 * y;
+			z1 = a1 * y;
 			return y;
 		}
 
 		void CalcPole(float pre)
 		{
-			a1 = -expf(pre * IIRBlepCoeffs::Ts);
+			a1 = expf(pre * IIRBlepCoeffs::Ts);
 		}
 
 		inline void InjectEvent(float g1)
@@ -294,21 +294,21 @@ namespace IIRBlep2
 		TwoPoleModal twoPoles[IIRBlepCoeffs::NumTwoPoles];
 		OnePoleModal onePoles[IIRBlepCoeffs::NumOnePoles];
 		float v = 0.0f;
-
+		const float cutoffScale = 0.75;//调截止频率缩放
 	public:
 		IIRBlep()
 		{
 			for (int i = 0; i < IIRBlepCoeffs::NumTwoPoles; ++i) {
-				const float pre = IIRBlepCoeffs::twoPoleParams[i * 2 + 0];
-				const float pim = IIRBlepCoeffs::twoPoleParams[i * 2 + 1];
+				const float pre = IIRBlepCoeffs::twoPoleParams[i * 2 + 0] * cutoffScale;
+				const float pim = IIRBlepCoeffs::twoPoleParams[i * 2 + 1] * cutoffScale;
 				twoPoles[i].CalcPole(pre, pim);
 			}
 
 			for (int i = 0; i < IIRBlepCoeffs::NumOnePoles; ++i) {
-				onePoles[i].CalcPole(IIRBlepCoeffs::onePoleParams[i]);
+				onePoles[i].CalcPole(IIRBlepCoeffs::onePoleParams[i] * cutoffScale);
 			}
 
-			IIRBlepUtils::BuildTables();
+			IIRBlepUtils::BuildTables(cutoffScale);
 		}
 
 		void Add(float linear_gain, float tau, int mode = 1)
@@ -391,20 +391,21 @@ namespace IIRBlep2
 		float twoPoleG2[IIRBlepCoeffs::NumTwoPoles][MaxInjectDelay] = { 0 };
 		float onePoleG1[IIRBlepCoeffs::NumOnePoles][MaxInjectDelay] = { 0 };
 		int pos = 0;
+		const float cutoffScale = 0.5;//调截止频率缩放
 	public:
 		IIRBlepDelayInject()
 		{
 			for (int i = 0; i < IIRBlepCoeffs::NumTwoPoles; ++i) {
-				const float pre = IIRBlepCoeffs::twoPoleParams[i * 2 + 0];
-				const float pim = IIRBlepCoeffs::twoPoleParams[i * 2 + 1];
+				const float pre = IIRBlepCoeffs::twoPoleParams[i * 2 + 0] * cutoffScale;
+				const float pim = IIRBlepCoeffs::twoPoleParams[i * 2 + 1] * cutoffScale;
 				twoPoles[i].CalcPole(pre, pim);
 			}
 
 			for (int i = 0; i < IIRBlepCoeffs::NumOnePoles; ++i) {
-				onePoles[i].CalcPole(IIRBlepCoeffs::onePoleParams[i]);
+				onePoles[i].CalcPole(IIRBlepCoeffs::onePoleParams[i] * cutoffScale);
 			}
 
-			IIRBlepUtils::BuildTables();
+			IIRBlepUtils::BuildTables(cutoffScale);
 		}
 
 		void Add(float linear_gain, float where, int mode = 1)
