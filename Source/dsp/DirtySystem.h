@@ -3,6 +3,7 @@
 #include <array>
 
 #include "Wavetable.h"
+#include "FreqShifter.h"
 #include "Filter.h"
 #include "Envelope.h"
 #include "DirtyParams.h"
@@ -206,6 +207,7 @@ namespace Dirtynth
 	private:
 		float sampleRate = 48000.0;
 		WTOscillator osc1, osc2;
+		FreqShifter freqShifter;
 		RegFilter regFilt1, regFilt2;
 		RegEnvelope regEnves[NumEnvelopes];
 		int sampleCount = 0;
@@ -328,9 +330,10 @@ namespace Dirtynth
 
 			/*PROCESSOR*/
 			float voiceDtBase = voicefreq / sampleRate;
-			float pmBase = voiceDtBase * 10.0;
+			float fmBase = voiceDtBase * 10.0;
 			voiceStateVolume = 0.0;
 			int systopo = params.sysTopo;
+			freqShifter.Normalized();//这个偶尔归一化一下
 			for (int i = 0; i < numSamples; ++i)
 			{
 				sampleCount++;
@@ -383,10 +386,9 @@ namespace Dirtynth
 				}
 				/*OSC PROCESS*/
 				float osc1out = osc1.ProcessSample(osc1dt);
-				float osc1pmv = osc1.GetNowNaiveSample() * params.pmDepth * pmBase;//乘voiceDtBase让pm输入幅度与频率去相关
-				if (osc1pmv > 60.0)osc1pmv = 60.0;
-				if (osc1pmv < -60.0)osc1pmv = -60.0;
-				float osc2out = osc2.ProcessSample(osc2dt, osc1pmv);
+				float osc1fmv = osc1out * params.pmDepth * fmBase * 1000.0;//乘voiceDtBase让pm输入幅度与频率去相关
+				float osc2out = osc2.ProcessSample(osc2dt);
+				osc2out = freqShifter.ProcessSampleFM(osc2out, osc1fmv);
 				osc1out *= params.osc1gain;
 				osc2out *= params.osc2gain;
 

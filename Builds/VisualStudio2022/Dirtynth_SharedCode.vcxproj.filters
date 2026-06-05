@@ -3606,6 +3606,9 @@
     <ClInclude Include="..\..\Source\dsp\TableBlep.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\FreqShifter.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\Wavetable.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>

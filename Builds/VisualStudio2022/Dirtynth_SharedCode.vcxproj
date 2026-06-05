@@ -2849,6 +2849,7 @@
     <ClInclude Include="..\..\Source\dsp\Filter.h"/>
     <ClInclude Include="..\..\Source\dsp\IIRBlep.h"/>
     <ClInclude Include="..\..\Source\dsp\TableBlep.h"/>
+    <ClInclude Include="..\..\Source\dsp\FreqShifter.h"/>
     <ClInclude Include="..\..\Source\dsp\Wavetable.h"/>
     <ClInclude Include="..\..\Source\PluginProcessor.h"/>
     <ClInclude Include="..\..\Source\PluginEditor.h"/>

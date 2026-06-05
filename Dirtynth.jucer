@@ -36,6 +36,7 @@
         <FILE id="oY5Heu" name="IIRBlep.h" compile="0" resource="0" file="Source/dsp/IIRBlep.h"/>
         <FILE id="r29II9" name="TableBlep.cpp" compile="1" resource="0" file="Source/dsp/TableBlep.cpp"/>
         <FILE id="MbZ4Fa" name="TableBlep.h" compile="0" resource="0" file="Source/dsp/TableBlep.h"/>
+        <FILE id="hPnpIL" name="FreqShifter.h" compile="0" resource="0" file="Source/dsp/FreqShifter.h"/>
         <FILE id="DVHdDd" name="Wavetable.h" compile="0" resource="0" file="Source/dsp/Wavetable.h"/>
       </GROUP>
       <FILE id="cIX3E0" name="PluginProcessor.cpp" compile="1" resource="0"
