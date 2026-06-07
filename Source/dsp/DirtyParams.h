@@ -64,6 +64,18 @@ namespace Dirtynth
 		float param = 1.0f + logf(x) / enveExpShape;
 		return Clamp01(param);
 	}
+
+	inline float AmountExp(float x)//[0,1]
+	{
+		const float k = 6.0;
+		return (expf((x - 1.0) * k) - expf(-k)) / (1.0 - expf(-k));
+	}
+	inline float AmountExpInv(float y)
+	{
+		const float k = 6.0f;
+		const float ek = expf(-k);
+		return 1.0f + logf(y * (1.0f - ek) + ek) / k;
+	}
 	/*--------------*/
 
 	struct DirtynthParams
@@ -137,7 +149,9 @@ namespace Dirtynth
 			Integer = 1,
 			NyquistFreqExp = 2,
 			FilterQ = 3,
-			TimeMsExp = 4
+			TimeMsExp = 4,
+			AmountLinear = 5,
+			AmountExp = 6
 		};
 
 		struct ParamDesc

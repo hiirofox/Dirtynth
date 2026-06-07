@@ -12,7 +12,7 @@ namespace Dirtynth
 {
 	using namespace MinusMKI;
 
-	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好
+	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好，也不是越小越好
 	constexpr static int MaxPolyphony = 8;
 	constexpr static int NumMutantThreads = 2;//根据平台cpu填
 
@@ -227,6 +227,10 @@ namespace Dirtynth
 		MutantThreadPool* mutantThreadPool;
 		DirtynthParamSystem* paramTools;
 		DirtynthParams* amountMul;
+
+		DirtynthParams params;
+		Filter* filter1 = std::dynamic_pointer_cast<Filter>(regFilt1[0]).get();
+		Filter* filter2 = std::dynamic_pointer_cast<Filter>(regFilt2[0]).get();
 	public:
 		DirtynthVoice()
 		{
@@ -274,7 +278,7 @@ namespace Dirtynth
 		float modAmount2[NumEnvelopes * 2];
 		float modAmountMul1[NumEnvelopes * 2];
 		float modAmountMul2[NumEnvelopes * 2];
-		void InitModulator(DirtynthParams& target, DirtynthParams& origin, DirtynthParams& amountMul)
+		inline void InitModulator(DirtynthParams& target, DirtynthParams& origin, DirtynthParams& amountMul)
 		{
 			for (int i = 0; i < NumEnvelopes; ++i) enves[i] = regEnves[i][(int)origin.enveParams[i].type].get();
 			for (int j = 0; j < NumEnvelopes; ++j)
@@ -301,9 +305,8 @@ namespace Dirtynth
 				modAmount2[i] = origin.enveParams[i].amount2;
 			}
 		}
-		void ApplyModulator()
+		inline void ApplyModulator()
 		{
-			for (int j = 0; j < NumEnvelopes; ++j) enves[j]->Step();
 			for (int j = 0; j < NumEnvelopes; ++j)
 			{
 				float enveval = enves[j]->GetValue();
@@ -311,22 +314,61 @@ namespace Dirtynth
 				*modTarget2[j] = modOrigin2[j] + enveval * modAmount2[j] * modAmountMul2[j];
 			}
 		}
+		inline void UpdateParamsToDSP()
+		{
+			//检查oscillator的intMagtable是否需要更新，并更新
+			if (osc1MutantTaskID == -1 && osc1.IsSwapTablePrepared())
+			{
+				osc1MutantTaskID = mutantThreadPool->SubmitMutantTask(1,
+					params.osc1Params.oscWtPreset, params.osc1Params.oscWtPos,
+					params.osc1Params.mutantA.mutantType, params.osc1Params.mutantA.p1, params.osc1Params.mutantA.p2, params.osc1Params.mutantA.p3,
+					params.osc1Params.mutantB.mutantType, params.osc1Params.mutantB.p1, params.osc1Params.mutantB.p2, params.osc1Params.mutantB.p3,
+					osc1.GetNextIntMagtable(), WTOscillator::TableWidth);
+			}
+			if (osc2MutantTaskID == -1 && osc2.IsSwapTablePrepared())
+			{
+				osc2MutantTaskID = mutantThreadPool->SubmitMutantTask(2,
+					params.osc2Params.oscWtPreset, params.osc2Params.oscWtPos,
+					params.osc2Params.mutantA.mutantType, params.osc2Params.mutantA.p1, params.osc2Params.mutantA.p2, params.osc2Params.mutantA.p3,
+					params.osc2Params.mutantB.mutantType, params.osc2Params.mutantB.p1, params.osc2Params.mutantB.p2, params.osc2Params.mutantB.p3,
+					osc2.GetNextIntMagtable(), WTOscillator::TableWidth);
+			}
+			if (osc1MutantTaskID != -1 && mutantThreadPool->GetTaskState(osc1MutantTaskID) == 2)
+			{
+				osc1.SetFillCompleteFlag();
+				mutantThreadPool->FreeTask(osc1MutantTaskID);
+				osc1MutantTaskID = -1;
+			}
+			if (osc2MutantTaskID != -1 && mutantThreadPool->GetTaskState(osc2MutantTaskID) == 2)
+			{
+				osc2.SetFillCompleteFlag();
+				mutantThreadPool->FreeTask(osc2MutantTaskID);
+				osc2MutantTaskID = -1;
+			}
+			//根据params更新滤波器参数
+			float cutoffTrackValue1 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
+			float cutoffTrackValue2 = powf(voicefreq / 55.0, params.filt2Params.keyTrack);
+			filter1->SetFilterParams(
+				params.filt1Params.cutoff * cutoffTrackValue1,
+				params.filt1Params.reso, params.filt1Params.morph);
+			filter2->SetFilterParams(
+				params.filt2Params.cutoff * cutoffTrackValue2,
+				params.filt2Params.reso, params.filt2Params.morph);
+			//更新oscillator频率
+			float voiceDtBase = voicefreq / sampleRate;
+			osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 100.0f) / 12.0);
+			osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 100.0f) / 12.0);
+		}
 		void ProcessBlockAccumulating(DirtynthParams& paramsInput, float* outl, float* outr, int numSamples)//输出直接叠加在原块上
 		{
-			DirtynthParams params = paramsInput;
-
-			int selectedOsc1MutantAType = params.osc1Params.mutantA.mutantType;
-			int selectedOsc1MutantBType = params.osc1Params.mutantB.mutantType;
-			int selectedOsc2MutantAType = params.osc2Params.mutantA.mutantType;
-			int selectedOsc2MutantBType = params.osc2Params.mutantB.mutantType;
-			int selectedFilt1Type = params.filt1Params.type;
-			int selectedFilt2Type = params.filt2Params.type;
-			Filter& filter1 = *std::dynamic_pointer_cast<Filter>(regFilt1[selectedFilt1Type]);
-			Filter& filter2 = *std::dynamic_pointer_cast<Filter>(regFilt2[selectedFilt2Type]);
+			params = paramsInput;
+			filter1 = std::dynamic_pointer_cast<Filter>(regFilt1[params.filt1Params.type]).get();
+			filter2 = std::dynamic_pointer_cast<Filter>(regFilt2[params.filt2Params.type]).get();
 
 			/*将被调制的参数指针，以及原始的参数指针打包*/
 			InitModulator(params, paramsInput, *amountMul);
 			ApplyModulator();
+			UpdateParamsToDSP();
 
 			/*PROCESSOR*/
 			float voiceDtBase = voicefreq / sampleRate;
@@ -340,49 +382,9 @@ namespace Dirtynth
 				if (sampleCount >= EnvelopeUpdateInterval)
 				{
 					sampleCount = 0;
-					ApplyModulator();//更新包络并应用
-
-					//检查oscillator的intMagtable是否需要更新，并更新
-					if (osc1MutantTaskID == -1 && osc1.IsSwapTablePrepared())
-					{
-						osc1MutantTaskID = mutantThreadPool->SubmitMutantTask(1,
-							params.osc1Params.oscWtPreset, params.osc1Params.oscWtPos,
-							selectedOsc1MutantAType, params.osc1Params.mutantA.p1, params.osc1Params.mutantA.p2, params.osc1Params.mutantA.p3,
-							selectedOsc1MutantBType, params.osc1Params.mutantB.p1, params.osc1Params.mutantB.p2, params.osc1Params.mutantB.p3,
-							osc1.GetNextIntMagtable(), WTOscillator::TableWidth);
-					}
-					if (osc2MutantTaskID == -1 && osc2.IsSwapTablePrepared())
-					{
-						osc2MutantTaskID = mutantThreadPool->SubmitMutantTask(2,
-							params.osc2Params.oscWtPreset, params.osc2Params.oscWtPos,
-							selectedOsc2MutantAType, params.osc2Params.mutantA.p1, params.osc2Params.mutantA.p2, params.osc2Params.mutantA.p3,
-							selectedOsc2MutantBType, params.osc2Params.mutantB.p1, params.osc2Params.mutantB.p2, params.osc2Params.mutantB.p3,
-							osc2.GetNextIntMagtable(), WTOscillator::TableWidth);
-					}
-					if (osc1MutantTaskID != -1 && mutantThreadPool->GetTaskState(osc1MutantTaskID) == 2)
-					{
-						osc1.SetFillCompleteFlag();
-						mutantThreadPool->FreeTask(osc1MutantTaskID);
-						osc1MutantTaskID = -1;
-					}
-					if (osc2MutantTaskID != -1 && mutantThreadPool->GetTaskState(osc2MutantTaskID) == 2)
-					{
-						osc2.SetFillCompleteFlag();
-						mutantThreadPool->FreeTask(osc2MutantTaskID);
-						osc2MutantTaskID = -1;
-					}
-					//根据params更新滤波器参数
-					float cutoffTrackValue1 = powf(voicefreq / 55.0, params.filt1Params.keyTrack);
-					float cutoffTrackValue2 = powf(voicefreq / 55.0, params.filt2Params.keyTrack);
-					filter1.SetFilterParams(
-						params.filt1Params.cutoff * cutoffTrackValue1,
-						params.filt1Params.reso, params.filt1Params.morph);
-					filter2.SetFilterParams(
-						params.filt2Params.cutoff * cutoffTrackValue2,
-						params.filt2Params.reso, params.filt2Params.morph);
-					//更新oscillator频率
-					osc1dt = voiceDtBase * powf(2.0, (params.osc1Params.oscPitch + params.osc1Params.oscDetune / 100.0f) / 12.0);
-					osc2dt = voiceDtBase * powf(2.0, (params.osc2Params.oscPitch + params.osc2Params.oscDetune / 100.0f) / 12.0);
+					for (int j = 0; j < NumEnvelopes; ++j) enves[j]->Step();//步进一次包络
+					ApplyModulator();//更新包络并应用到参数
+					UpdateParamsToDSP();//将参数更新到dsp
 				}
 				/*OSC PROCESS*/
 				float osc1out = osc1.ProcessSample(osc1dt);
@@ -394,13 +396,13 @@ namespace Dirtynth
 
 				/*FILTER PROCESS*/
 				float filt1in = (systopo == 0 || systopo == 1) ? osc1out : osc1out + osc2out;
-				float filt1out = filter1.ProcessSample(filt1in) * params.filt1gain;
+				float filt1out = filter1->ProcessSample(filt1in) * params.filt1gain;
 				float filt2in = 0;
 				if (systopo == 0)filt2in = osc2out;
 				else if (systopo == 1)filt2in = osc2out + filt1out;
 				else if (systopo == 2)filt2in = filt1out;
 				else if (systopo == 3)filt2in = osc1out + osc2out;
-				float filt2out = filter2.ProcessSample(filt2in) * params.filt2gain;
+				float filt2out = filter2->ProcessSample(filt2in) * params.filt2gain;
 				float filtout = (systopo == 0 || systopo == 3) ? filt1out + filt2out : filt2out;
 				filtout *= params.outputAmp;
 

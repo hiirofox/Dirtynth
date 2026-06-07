@@ -29,6 +29,8 @@ namespace MinusMKI
 		float s[4] = { 0 }, k[4] = { 0 }, r[4] = { 0 };
 		float pos = 0;
 		float y = 0;
+
+		float attl = 100.0, attShape = -1;
 	public:
 		void Step() override
 		{
@@ -49,7 +51,8 @@ namespace MinusMKI
 			if (state)
 			{
 				pos = 1.0;
-				y = 0.0;
+				//y = 0.0;//attack强制从0开始
+				SetSegment(y, 1.0, attl, attShape, 1);//attack继续release的值开始
 			}
 			else
 			{
@@ -104,6 +107,8 @@ namespace MinusMKI
 			k[3] = 0.0;
 			r[3] = 0.0;
 			//attack
+			this->attl = attl;
+			this->attShape = attShape;
 			SetSegment(0.0, 1.0, attl, attShape, 1);
 			//decay
 			SetSegment(1.0, susV, decl, decShape, 2);
