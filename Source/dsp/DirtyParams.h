@@ -68,13 +68,17 @@ namespace Dirtynth
 	inline float AmountExp(float x)//[0,1]
 	{
 		const float k = 6.0;
-		return (expf((x - 1.0) * k) - expf(-k)) / (1.0 - expf(-k));
+		float sign = x > 0 ? 1 : -1;
+		x = fabsf(x);
+		return sign * (expf((x - 1.0) * k) - expf(-k)) / (1.0 - expf(-k));
 	}
 	inline float AmountExpInv(float y)
 	{
 		const float k = 6.0f;
 		const float ek = expf(-k);
-		return 1.0f + logf(y * (1.0f - ek) + ek) / k;
+		float sign = y > 0 ? 1 : -1;
+		y = fabsf(y);
+		return sign * (1.0f + logf(y * (1.0f - ek) + ek) / k);
 	}
 	/*--------------*/
 
@@ -262,6 +266,7 @@ namespace Dirtynth
 				PatchEnvelopeDescs(descs, paramsRef.enveParams[i], i + 1);
 			for (int i = 0; i < NumEffects; ++i)
 				PatchEffectDescs(descs, paramsRef.effectParams[i], i + 1);
+			PatchEnvelopeAmountDescs(descs, paramsRef);
 			return descs;
 		}
 
@@ -326,8 +331,8 @@ namespace Dirtynth
 			RegParam(enveParams.mode, MakeDesc(prefix + "Mode", "Mode", false, Integer, 0.0f, static_cast<float>(NumEnvelopeModes - 1), 0.0f));
 			RegParam(enveParams.targetID1, MakeDesc(prefix + "TargetID1", "Target1", false, Integer, 0.0f, 0.0f, 0.0f));
 			RegParam(enveParams.targetID2, MakeDesc(prefix + "TargetID2", "Target2", false, Integer, 0.0f, 0.0f, 0.0f));
-			RegParam(enveParams.amount1, MakeDesc(prefix + "Amount1", "Amount1", false, Linear, -1.0f, 1.0f, 0.0f));
-			RegParam(enveParams.amount2, MakeDesc(prefix + "Amount2", "Amount2", false, Linear, -1.0f, 1.0f, 0.0f));
+			RegParam(enveParams.amount1, MakeDesc(prefix + "Amount1", "Amount1", false, AmountLinear, -1.0f, 1.0f, 0.0f));
+			RegParam(enveParams.amount2, MakeDesc(prefix + "Amount2", "Amount2", false, AmountLinear, -1.0f, 1.0f, 0.0f));
 			RegParam(enveParams.p1, MakeDesc(prefix + "P1", "P1", false, Linear, 0.0f, 1.0f, 0.0f));
 			RegParam(enveParams.p2, MakeDesc(prefix + "P2", "P2", false, Linear, 0.0f, 1.0f, 0.0f));
 			RegParam(enveParams.p3, MakeDesc(prefix + "P3", "P3", false, Linear, 0.0f, 1.0f, 0.0f));
@@ -450,6 +455,29 @@ namespace Dirtynth
 			else if (envelopeType == 1)//¥˝≤π≥‰¿‡–Õ
 			{
 
+			}
+		}
+
+		KnobFeelType GetAmountFeelForTarget(const std::vector<ParamDesc>& descs, float targetID)
+		{
+			const int id = static_cast<int>(targetID);
+			if (id <= 0 || id > static_cast<int>(descs.size()))
+				return AmountLinear;
+
+			const ParamDesc& targetDesc = descs[id - 1];
+			return targetDesc.paramType == NyquistFreqExp ? AmountExp : AmountLinear;
+		}
+
+		void PatchEnvelopeAmountDescs(std::vector<ParamDesc>& descs, const DirtynthParams& paramsRef)
+		{
+			for (int i = 0; i < NumEnvelopes; ++i)
+			{
+				const std::string prefix = Prefix("enve", i + 1);
+				const DirtynthParams::EnveParams& enveParams = paramsRef.enveParams[i];
+				PatchDesc(descs, prefix + "Amount1", "Amount1", false,
+					GetAmountFeelForTarget(descs, enveParams.targetID1), -1.0f, 1.0f, 0.0f);
+				PatchDesc(descs, prefix + "Amount2", "Amount2", false,
+					GetAmountFeelForTarget(descs, enveParams.targetID2), -1.0f, 1.0f, 0.0f);
 			}
 		}
 

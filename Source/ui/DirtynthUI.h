@@ -115,6 +115,28 @@ namespace DirtynthUIHelpers
 				};
 			knob.SetKnobFeelRule(rule);
 			break;
+		case DirtynthParamSystem::AmountLinear:
+			rule.sliderMin = desc.minValue;
+			rule.sliderMax = desc.maxValue;
+			rule.sliderDefault = desc.defValue;
+			rule.SliderToValue = [](float x) { return x; };
+			rule.ValueToSlider = [](float x) { return x; };
+			knob.SetKnobFeelRule(rule);
+			break;
+		case DirtynthParamSystem::AmountExp:
+			rule.sliderMin = desc.minValue;
+			rule.sliderMax = desc.maxValue;
+			rule.sliderDefault = Dirtynth::AmountExpInv(desc.defValue);
+			rule.SliderToValue = [](float x)
+				{
+					return Dirtynth::AmountExp(x);
+				};
+			rule.ValueToSlider = [](float x)
+				{
+					return Dirtynth::AmountExpInv(x);
+				};
+			knob.SetKnobFeelRule(rule);
+			break;
 		case DirtynthParamSystem::Linear:
 		default:
 			knob.ClearKnobFeelRule();
@@ -590,11 +612,19 @@ public:
 			{
 				GetSelectedParams().targetID1 = static_cast<float>(selectedID > 1 ? selectedID - 1 : 0);
 				SendParams();
+				if (this->onSemanticChanged)
+					this->onSemanticChanged();
+				else
+					SelectEnve(selectedEnvelope);
 			});
 		envTarget2.setChangedCallback([this](int selectedID)
 			{
 				GetSelectedParams().targetID2 = static_cast<float>(selectedID > 1 ? selectedID - 1 : 0);
 				SendParams();
+				if (this->onSemanticChanged)
+					this->onSemanticChanged();
+				else
+					SelectEnve(selectedEnvelope);
 			});
 
 		addAndMakeVisible(envView);
