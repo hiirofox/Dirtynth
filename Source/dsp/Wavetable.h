@@ -74,7 +74,10 @@ namespace MinusMKI
 	public:
 		virtual void Apply(float* table, int numSamples) {};
 		virtual void SetMutantParams(float param1, float param2, float param3) {};
+		inline float modf01(float x) { return x - floorf(x); }
+		inline float clampf01(float x) { return x < 0.0 ? 0.0 : (x > 1.0 ? 1.0 : x); }
 	};
+
 	template<int TableWidth>
 	class TableMutantSync :public TableMutant
 	{
@@ -84,7 +87,6 @@ namespace MinusMKI
 	private:
 		float descTable[TableWidth] = { 0 };
 		float depth = 0, phase = 0, smooth = 0;
-		float clampf01(float x) { return x - floorf(x); }
 	public:
 		void Apply(float* table, int numSamples) override
 		{
@@ -96,7 +98,7 @@ namespace MinusMKI
 			{
 				t += dt;
 				st += smooth1 * (t - st);//cool!
-				float idxf = clampf01(st + phase) * numSamples;
+				float idxf = modf01(st + phase) * numSamples;
 				int idx1 = idxf;
 				int idx2 = idx1 + 1;
 				idx2 = idx2 >= numSamples ? 0 : idx2;
@@ -110,9 +112,9 @@ namespace MinusMKI
 		}
 		void SetMutantParams(float depth, float phase, float smooth) override
 		{
-			this->depth = depth;
-			this->phase = phase;
-			this->smooth = 1.0 - smooth;
+			this->depth = clampf01(depth);
+			this->phase = clampf01(phase);
+			this->smooth = 1.0 - clampf01(smooth);
 		}
 	};
 	template<int TableWidth>
@@ -125,7 +127,6 @@ namespace MinusMKI
 		float descTable2[TableWidth] = { 0 };
 		float depth = 0, prelp = 0, stages = 0;
 		float lpv[NumStages] = { 0 };
-		float clampf01(float x) { return x - floorf(x); }
 	public:
 		void Apply(float* table, int numSamples) override
 		{
@@ -144,7 +145,7 @@ namespace MinusMKI
 				{
 					float t0 = (float)i / numSamples;
 					float t = t0 + lpv[n] * dp;
-					float idxf = clampf01(t) * numSamples;
+					float idxf = modf01(t) * numSamples;
 					int idx1 = idxf;
 					int idx2 = idx1 + 1;
 					idx2 = idx2 >= numSamples ? 0 : idx2;
@@ -158,7 +159,7 @@ namespace MinusMKI
 				{
 					float t0 = (float)i / numSamples;
 					float t = t0 + lpv[n] * dp;
-					float idxf = clampf01(t) * numSamples;
+					float idxf = modf01(t) * numSamples;
 					int idx1 = idxf;
 					int idx2 = idx1 + 1;
 					idx2 = idx2 >= numSamples ? 0 : idx2;
@@ -189,9 +190,9 @@ namespace MinusMKI
 		}
 		void SetMutantParams(float depth, float prelp, float stages) override
 		{
-			this->depth = depth;
-			this->prelp = prelp;
-			this->stages = stages;
+			this->depth = clampf01(depth);
+			this->prelp = clampf01(prelp);
+			this->stages = clampf01(stages);
 		}
 	};
 	template<int TableWidth>
@@ -201,7 +202,6 @@ namespace MinusMKI
 	private:
 		float descTable[TableWidth] = { 0 };
 		float depth = 0, tmix = 0, rate = 0;
-		float clampf01(float x) { return x - floorf(x); }
 	public:
 		void Apply(float* table, int numSamples) override
 		{
@@ -227,6 +227,9 @@ namespace MinusMKI
 		}
 		void SetMutantParams(float depth, float tmix, float rate) override
 		{
+			depth = clampf01(depth);
+			tmix = clampf01(tmix);
+			rate = clampf01(rate);
 			this->depth = depth * depth;
 			this->tmix = tmix;
 			this->rate = 1.0 - rate;
@@ -315,6 +318,9 @@ namespace MinusMKI
 		}
 		void SetMutantParams(float disperse, float harmonic, float comb) override
 		{
+			disperse = clampf01(disperse);
+			harmonic = clampf01(harmonic);
+			comb = clampf01(comb);
 			this->disperse = disperse * disperse * disperse * disperse * 200.0;
 			this->harmonic = harmonic * 16.0;
 			this->comb = comb * TableWidth / 8.0;
