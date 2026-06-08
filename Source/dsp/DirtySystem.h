@@ -128,7 +128,7 @@ namespace Dirtynth
 			for (int i = 0; i < MaxQueueLen; ++i)
 			{
 				int idx = (submitIdx + i) % MaxQueueLen;
-				if (taskFlags[idx].load() == 0)
+				if (taskFlags[idx].load() == 0)//找到空任务槽
 				{
 					taskID = idx;
 					nextTask = &taskQueue[idx];
@@ -143,7 +143,7 @@ namespace Dirtynth
 			}
 			else
 			{
-				return -1;
+				return -1;//找不到空任务槽就不添加这个任务
 			}
 		}
 		int GetTaskState(int taskID)

@@ -7,7 +7,7 @@
 
 namespace Dirtynth
 {
-	constexpr static int NumEnvelopes = 6;
+	constexpr static int NumEnvelopes = 12;
 	constexpr static int NumEffects = 2;
 
 	constexpr static int NumWavetablePresets = 1;
@@ -331,8 +331,8 @@ namespace Dirtynth
 			RegParam(enveParams.mode, MakeDesc(prefix + "Mode", "Mode", false, Integer, 0.0f, static_cast<float>(NumEnvelopeModes - 1), 0.0f));
 			RegParam(enveParams.targetID1, MakeDesc(prefix + "TargetID1", "Target1", false, Integer, 0.0f, 0.0f, 0.0f));
 			RegParam(enveParams.targetID2, MakeDesc(prefix + "TargetID2", "Target2", false, Integer, 0.0f, 0.0f, 0.0f));
-			RegParam(enveParams.amount1, MakeDesc(prefix + "Amount1", "Amount1", false, AmountLinear, -1.0f, 1.0f, 0.0f));
-			RegParam(enveParams.amount2, MakeDesc(prefix + "Amount2", "Amount2", false, AmountLinear, -1.0f, 1.0f, 0.0f));
+			RegParam(enveParams.amount1, MakeDesc(prefix + "Amount1", "Amount1", true, AmountLinear, -1.0f, 1.0f, 0.0f));
+			RegParam(enveParams.amount2, MakeDesc(prefix + "Amount2", "Amount2", true, AmountLinear, -1.0f, 1.0f, 0.0f));
 			RegParam(enveParams.p1, MakeDesc(prefix + "P1", "P1", false, Linear, 0.0f, 1.0f, 0.0f));
 			RegParam(enveParams.p2, MakeDesc(prefix + "P2", "P2", false, Linear, 0.0f, 1.0f, 0.0f));
 			RegParam(enveParams.p3, MakeDesc(prefix + "P3", "P3", false, Linear, 0.0f, 1.0f, 0.0f));

@@ -10,7 +10,7 @@ namespace MinusMKI
 		GlobalResetOnFirstNoteOn = 3,	//全局，按下第一个键重置
 		GlobalResetOnAnyNoteOn = 4		//全局，按下任意键重置
 	};
-	class Envelope
+	class Envelope//现在看来，不应该叫Envelope，应该叫调制源
 	{
 	private:
 	public:
