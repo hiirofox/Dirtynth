@@ -213,7 +213,7 @@ namespace MinusMKI
 				float t1 = depth1 * powf(x, rate1);
 				float t2 = x;
 				float t = t2 + (t1 - t2) * tmix;
-				float idxf = clampf01(t) * numSamples;
+				float idxf = modf01(t) * numSamples;
 				int idx1 = idxf;
 				int idx2 = idx1 + 1;
 				idx2 = idx2 >= numSamples ? 0 : idx2;

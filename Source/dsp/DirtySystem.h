@@ -57,10 +57,17 @@ namespace Dirtynth
 	};
 	struct RegEnvelope
 	{
-		constexpr static int NumRegEnvelope = 1;
-		constexpr static const char* EnvelopeNames[RegEnvelope::NumRegEnvelope] = { "ADSR" };
+		constexpr static int NumRegEnvelope = 7;
+		constexpr static const char* EnvelopeNames[RegEnvelope::NumRegEnvelope] = { "ADSR" ,"VelocityMod","CC0Mod","CC1Mod","MPEMod","CV1Mod","CV2Mod" };
 		std::vector<std::shared_ptr<Envelope>> regEnvelope{
-			std::make_shared<ADSR>() };
+			std::make_shared<ADSR>(ControlSourceType::Trigger),
+			std::make_shared<ModSource>(ControlSourceType::Velocity),
+			std::make_shared<ModSource>(ControlSourceType::CC0),
+			std::make_shared<ModSource>(ControlSourceType::CC1),
+			std::make_shared<ModSource>(ControlSourceType::MPE),
+			std::make_shared<ModSource>(ControlSourceType::CV1),
+			std::make_shared<ModSource>(ControlSourceType::CV2)
+		};
 		std::shared_ptr<Envelope> operator[](std::size_t index)
 		{
 			return regEnvelope[index];
@@ -553,7 +560,7 @@ namespace Dirtynth
 					enves[j]->SetNoteState(0);
 			}
 		}
-		void ProcessBlock(DirtynthMidiEvent* midiQueue, int numMidiEvents, float* outl, float* outr, int numSamples)
+		void ProcessBlock(DirtynthMidiEvent* midiQueue, int numMidiEvents, float* __restrict outl, float* __restrict outr, int numSamples)
 		{
 			params = nextParams;
 			/*PROCESS MIDI*/

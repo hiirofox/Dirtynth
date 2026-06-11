@@ -10,20 +10,37 @@ namespace MinusMKI
 		GlobalResetOnFirstNoteOn = 3,	//全局，按下第一个键重置
 		GlobalResetOnAnyNoteOn = 4		//全局，按下任意键重置
 	};
-	class Envelope//现在看来，不应该叫Envelope，应该叫调制源
+	enum class ControlSourceType
+	{
+		NoteGate = -3,//note on触发1，note off触发0(二值)
+		NotePitch = -2,//归一化key num，即key/128
+		Velocity = -1,//力度
+
+		CC1 = 1,//CC1调制轮
+		CC2 = 2,//CC2呼吸控制器
+		Aftertouch = 3,//触后
+		CV1 = 4,//CV1电压
+		CV2 = 5,//CV2电压
+	};
+	class Envelope
 	{
 	private:
 	public:
 		virtual void Reset() {};
-		virtual void SetSampleRate(float sr) {};
-		virtual void SetNoteState(bool off0on1) {};
-		virtual void SetParams(float p1, float p2, float p3, float p4, float p5, float p6) {};
-		virtual void Step() {};
-		virtual float GetValue() { return 0.0f; };
+		virtual void SetSampleRate(float sr) {};//设置采样率
+		virtual void SetNoteState(bool off0on1) {};//设置按键状态
+		virtual void SetParams(float p1, float p2, float p3, float p4, float p5, float p6) {};//设置包络参数
+		virtual void Step() {};//步进
+		virtual float GetValue() { return 0.0f; };//获取值
+
+		virtual void SetControlValue(float cv) {};//设置控制值，可以是velocity,cc,mpe,cv等等，仅用于调制源
+		virtual void SetControlSourceType(ControlSourceType cst) {};
+		virtual ControlSourceType GetControlSourceType() { return ControlSourceType::NoteGate; }
 	};
 	class ADSR :public Envelope
 	{
 	private:
+		ControlSourceType cst = ControlSourceType::NoteGate;
 		float sampleRate = 48000;
 		//0:release 1:attack 2:decay 3:sustain
 		float s[4] = { 0 }, k[4] = { 0 }, r[4] = { 0 };
@@ -32,6 +49,11 @@ namespace MinusMKI
 
 		float attl = 100.0, attShape = -1;
 	public:
+		ADSR() { SetControlSourceType(ControlSourceType::NoteGate); }
+		ADSR(ControlSourceType cst) { SetControlSourceType(cst); }
+		void SetControlSourceType(ControlSourceType cst) override { this->cst = cst; }
+		ControlSourceType GetControlSourceType() override { return cst; }
+
 		void Step() override
 		{
 			int idx = pos;
@@ -119,5 +141,67 @@ namespace MinusMKI
 			else if (idx == 2) y = EvalSegment(1.0f, susV, decShape, posFrac);
 			else if (idx == 3) y = susV;
 		}
+
+	};
+
+	class ModSource :public Envelope
+	{
+	private:
+		ControlSourceType cst;
+		float sampleRate = 48000.0;
+		float cv = 0.0;
+		float y = 0.0;
+
+		float curve = 0.0;
+		float downbit = 0.0;
+		float smooth = 0.0;
+		float overshoot = 0.0;
+		float hp = 0.0;
+		float trajitter = 0.0;
+
+		float Curve(float x, float curve)
+		{
+			curve *= 12.0;
+			if (fabsf(curve) < 0.001)return x;
+			float sign = x;
+			x = fabsf(x);
+			float y = (expf((x - 1.0) * curve) - expf(-curve)) / (1.0 - expf(-curve));
+			return std::copysignf(y, sign);
+		}
+		float Downbit(float x, float perceptBit)
+		{
+			perceptBit = Curve(perceptBit, 1.0);
+			const float quanti = 65536.0 * 4.0;
+			int ix = x * perceptBit * quanti;
+			return ix / perceptBit / quanti;
+		}
+	public:
+		ModSource() { SetControlSourceType(ControlSourceType::NoteGate); };
+		ModSource(ControlSourceType cst) { SetControlSourceType(cst); }
+
+		void Reset() override
+		{
+			y = cv;
+		};
+		void SetSampleRate(float sr) override { sampleRate = sr; }
+		void SetNoteState(bool off0on1) {}
+		void SetParams(float curve, float downbit, float smooth, float overshoot, float hp, float trajitter) override
+		{
+			this->curve = curve;
+			this->downbit = downbit;
+			this->smooth = smooth;//1
+			this->overshoot = overshoot;//2
+			this->hp = hp;//3
+			this->trajitter = trajitter;//4
+		}
+		void Step() override
+		{
+			y = cv;
+		}
+		float GetValue() override { return y; };
+
+		void SetControlValue(float cv) override { this->cv = Downbit(Curve(cv, curve), downbit); };
+		void SetControlSourceType(ControlSourceType cst) override { this->cst = cst; }
+		ControlSourceType GetControlSourceType() override { return cst; }
 	};
 }
