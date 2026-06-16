@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "Serializer.h"
 
 namespace Dirtynth
 {
@@ -290,6 +291,45 @@ namespace Dirtynth
 			return multiplier;
 		}
 
+		std::string SaveParamsToString(const DirtynthParams params)
+		{
+			EnsureParamTableBuilt();
+
+			SerializerWrite writer;
+			writer.MakeBlock("DirtynthParams");
+
+			const int numParams = static_cast<int>(baseParamDescs.size());
+			for (int id = 1; id <= numParams; ++id)
+			{
+				const ParamDesc& desc = baseParamDescs[id - 1];
+				writer.WriteTagFloat(desc.indexName, GetParamRefByID(const_cast<DirtynthParams&>(params), id));
+			}
+
+			writer.Break();
+			return writer.GetSerialData();
+		}
+
+		DirtynthParams LoadParamsFromString(std::string data)
+		{
+			EnsureParamTableBuilt();
+
+			DirtynthParams params;
+			SerializerRead reader;
+			reader.ReadSerialDataFromString(data);
+
+			if (!reader.TryIntoBlock("DirtynthParams"))
+				return params;
+
+			const int numParams = static_cast<int>(baseParamDescs.size());
+			for (int id = 1; id <= numParams; ++id)
+			{
+				const ParamDesc& desc = baseParamDescs[id - 1];
+				GetParamRefByID(params, id) = reader.GetTagFloat(desc.indexName);
+			}
+
+			reader.Break();
+			return params;
+		}
 	private:
 		static std::string Prefix(const char* name, int index)
 		{
@@ -501,5 +541,6 @@ namespace Dirtynth
 				break;
 			}
 		}
+
 	};
 }

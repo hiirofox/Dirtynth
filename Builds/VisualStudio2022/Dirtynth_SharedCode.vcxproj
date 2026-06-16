@@ -144,11 +144,12 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\dsp\Serializer.cpp"/>
+    <ClCompile Include="..\..\Source\dsp\TableBlep.cpp"/>
     <ClCompile Include="..\..\Source\ui\LM_slider.cpp"/>
     <ClCompile Include="..\..\Source\ui\LMKnobDirect.cpp"/>
-    <ClCompile Include="..\..\Source\dsp\TableBlep.cpp"/>
-    <ClCompile Include="..\..\Source\PluginProcessor.cpp"/>
     <ClCompile Include="..\..\Source\PluginEditor.cpp"/>
+    <ClCompile Include="..\..\Source\PluginProcessor.cpp"/>
     <ClCompile Include="C:\JUCE\modules\juce_audio_basics\audio_play_head\juce_AudioPlayHead.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -2834,25 +2835,27 @@
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_gui_extra.cpp"/>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Source\ui\LM_slider.h"/>
-    <ClInclude Include="..\..\Source\ui\LMKnobDirect.h"/>
-    <ClInclude Include="..\..\Source\ui\DirtynthUI.h"/>
     <ClInclude Include="..\..\Source\dsp\effects\chorus\lmchorus.h"/>
     <ClInclude Include="..\..\Source\dsp\effects\delay\lmdelay.h"/>
     <ClInclude Include="..\..\Source\dsp\effects\reverb\VintageHall.h"/>
     <ClInclude Include="..\..\Source\dsp\effects\effects.h"/>
     <ClInclude Include="..\..\Source\dsp\presets\presets.h"/>
-    <ClInclude Include="..\..\Source\dsp\DirtySystem.h"/>
     <ClInclude Include="..\..\Source\dsp\Cpptools.h"/>
     <ClInclude Include="..\..\Source\dsp\DirtyParams.h"/>
+    <ClInclude Include="..\..\Source\dsp\DirtySystem.h"/>
     <ClInclude Include="..\..\Source\dsp\Envelope.h"/>
     <ClInclude Include="..\..\Source\dsp\Filter.h"/>
-    <ClInclude Include="..\..\Source\dsp\IIRBlep.h"/>
-    <ClInclude Include="..\..\Source\dsp\TableBlep.h"/>
     <ClInclude Include="..\..\Source\dsp\FreqShifter.h"/>
+    <ClInclude Include="..\..\Source\dsp\IIRBlep.h"/>
+    <ClInclude Include="..\..\Source\dsp\Serializer.h"/>
+    <ClInclude Include="..\..\Source\dsp\TableBlep.h"/>
     <ClInclude Include="..\..\Source\dsp\Wavetable.h"/>
-    <ClInclude Include="..\..\Source\PluginProcessor.h"/>
+    <ClInclude Include="..\..\Source\ui\PresetComponent.h"/>
+    <ClInclude Include="..\..\Source\ui\DirtynthUI.h"/>
+    <ClInclude Include="..\..\Source\ui\LM_slider.h"/>
+    <ClInclude Include="..\..\Source\ui\LMKnobDirect.h"/>
     <ClInclude Include="..\..\Source\PluginEditor.h"/>
+    <ClInclude Include="..\..\Source\PluginProcessor.h"/>
     <ClInclude Include="C:\JUCE\modules\juce_audio_basics\audio_play_head\juce_AudioPlayHead.h"/>
     <ClInclude Include="C:\JUCE\modules\juce_audio_basics\buffers\juce_AudioChannelSet.h"/>
     <ClInclude Include="C:\JUCE\modules\juce_audio_basics\buffers\juce_AudioDataConverters.h"/>

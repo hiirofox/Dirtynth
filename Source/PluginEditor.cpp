@@ -11,12 +11,16 @@
 
 //==============================================================================
 DirtynthAudioProcessorEditor::DirtynthAudioProcessorEditor(DirtynthAudioProcessor& p)
-	: AudioProcessorEditor(&p), audioProcessor(p), dirtynthUI(p.dirtynth)
+	: AudioProcessorEditor(&p),
+	audioProcessor(p),
+	dirtynthUI(p.dirtynth),
+	presetComponent(p.dirtynth)
 {
 	// Make sure that before the constructor has finished, you've set the
 	// editor's size to whatever you need it to be.
 	setSize(1024, 480);
 	addAndMakeVisible(dirtynthUI);
+	addAndMakeVisible(presetComponent);
 }
 
 DirtynthAudioProcessorEditor::~DirtynthAudioProcessorEditor()
@@ -35,4 +39,5 @@ void DirtynthAudioProcessorEditor::resized()
 	// This is generally where you'll want to lay out the positions of any
 	// subcomponents in your editor..
 	dirtynthUI.setBounds(0, 0, getWidth(), getHeight());
+	presetComponent.setBounds(getWidth() - 64 - 16, 16, 64, 32);
 }

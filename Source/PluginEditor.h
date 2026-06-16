@@ -11,6 +11,7 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "ui/DirtynthUI.h"
+#include "ui/PresetComponent.h"
 //==============================================================================
 /**
 */
@@ -29,5 +30,6 @@ private:
 	// access the processor object that created it.
 	DirtynthAudioProcessor& audioProcessor;
 	DirtynthUI dirtynthUI;
+	PresetComponent presetComponent;
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DirtynthAudioProcessorEditor)
 };

@@ -2,9 +2,6 @@
 
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Dirtynth\Source\ui">
-      <UniqueIdentifier>{3918F377-0B98-FA3C-58CC-82D8C95194FA}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Dirtynth\Source\dsp\effects\chorus">
       <UniqueIdentifier>{7654CDF0-1AC7-616C-1A4F-043908CAB4AC}</UniqueIdentifier>
     </Filter>
@@ -22,6 +19,9 @@
     </Filter>
     <Filter Include="Dirtynth\Source\dsp">
       <UniqueIdentifier>{FAA22066-CEA8-95CE-4600-FEF1BD2C248D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dirtynth\Source\ui">
+      <UniqueIdentifier>{3918F377-0B98-FA3C-58CC-82D8C95194FA}</UniqueIdentifier>
     </Filter>
     <Filter Include="Dirtynth\Source">
       <UniqueIdentifier>{A42F6D92-B39F-2F39-C58A-C0F3B4943DF5}</UniqueIdentifier>
@@ -691,19 +691,22 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\dsp\Serializer.cpp">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\dsp\TableBlep.cpp">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Source\ui\LM_slider.cpp">
       <Filter>Dirtynth\Source\ui</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Source\ui\LMKnobDirect.cpp">
       <Filter>Dirtynth\Source\ui</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Source\dsp\TableBlep.cpp">
-      <Filter>Dirtynth\Source\dsp</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Source\PluginProcessor.cpp">
+    <ClCompile Include="..\..\Source\PluginEditor.cpp">
       <Filter>Dirtynth\Source</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Source\PluginEditor.cpp">
+    <ClCompile Include="..\..\Source\PluginProcessor.cpp">
       <Filter>Dirtynth\Source</Filter>
     </ClCompile>
     <ClCompile Include="C:\JUCE\modules\juce_audio_basics\audio_play_head\juce_AudioPlayHead.cpp">
@@ -3561,15 +3564,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\Source\ui\LM_slider.h">
-      <Filter>Dirtynth\Source\ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\ui\LMKnobDirect.h">
-      <Filter>Dirtynth\Source\ui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\ui\DirtynthUI.h">
-      <Filter>Dirtynth\Source\ui</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\effects\chorus\lmchorus.h">
       <Filter>Dirtynth\Source\dsp\effects\chorus</Filter>
     </ClInclude>
@@ -3585,13 +3579,13 @@
     <ClInclude Include="..\..\Source\dsp\presets\presets.h">
       <Filter>Dirtynth\Source\dsp\presets</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\dsp\DirtySystem.h">
-      <Filter>Dirtynth\Source\dsp</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\Cpptools.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Source\dsp\DirtyParams.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\DirtySystem.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Source\dsp\Envelope.h">
@@ -3600,22 +3594,37 @@
     <ClInclude Include="..\..\Source\dsp\Filter.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\FreqShifter.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\IIRBlep.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\Serializer.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Source\dsp\TableBlep.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\dsp\FreqShifter.h">
-      <Filter>Dirtynth\Source\dsp</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\Wavetable.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Source\PluginProcessor.h">
-      <Filter>Dirtynth\Source</Filter>
+    <ClInclude Include="..\..\Source\ui\PresetComponent.h">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\ui\DirtynthUI.h">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\ui\LM_slider.h">
+      <Filter>Dirtynth\Source\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\ui\LMKnobDirect.h">
+      <Filter>Dirtynth\Source\ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Source\PluginEditor.h">
+      <Filter>Dirtynth\Source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\PluginProcessor.h">
       <Filter>Dirtynth\Source</Filter>
     </ClInclude>
     <ClInclude Include="C:\JUCE\modules\juce_audio_basics\audio_play_head\juce_AudioPlayHead.h">

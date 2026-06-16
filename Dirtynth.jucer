@@ -4,48 +4,52 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn">
   <MAINGROUP id="MOB2aV" name="Dirtynth">
     <GROUP id="{82E2CD57-903E-E646-D2C5-58147DAAF7BE}" name="Source">
+      <GROUP id="{1D37E90D-EE0E-B2E3-791B-5E85D9A997C3}" name="dsp">
+        <GROUP id="{8A75561F-EB07-12AE-D7A0-3B884E505F35}" name="effects">
+          <GROUP id="{072DA876-006F-209A-F710-7FE78704544D}" name="chorus">
+            <FILE id="cvkrhF" name="lmchorus.h" compile="0" resource="0" file="Source/dsp/effects/chorus/lmchorus.h"/>
+          </GROUP>
+          <GROUP id="{106D5510-7C9B-F3B1-A469-C01017C67179}" name="delay">
+            <FILE id="wXtHlY" name="lmdelay.h" compile="0" resource="0" file="Source/dsp/effects/delay/lmdelay.h"/>
+          </GROUP>
+          <GROUP id="{7C3B31D2-8EF5-CF59-D6A9-67040AD24BA2}" name="reverb">
+            <FILE id="IL0kO8" name="VintageHall.h" compile="0" resource="0" file="Source/dsp/effects/reverb/VintageHall.h"/>
+          </GROUP>
+          <FILE id="rgXxjl" name="effects.h" compile="0" resource="0" file="Source/dsp/effects/effects.h"/>
+        </GROUP>
+        <GROUP id="{FA673913-808B-B782-8849-D9AE808544CF}" name="presets">
+          <FILE id="snx9kZ" name="presets.h" compile="0" resource="0" file="Source/dsp/presets/presets.h"/>
+        </GROUP>
+        <FILE id="Oonp7o" name="Cpptools.h" compile="0" resource="0" file="Source/dsp/Cpptools.h"/>
+        <FILE id="Vl7RUi" name="DirtyParams.h" compile="0" resource="0" file="Source/dsp/DirtyParams.h"/>
+        <FILE id="RzTias" name="DirtySystem.h" compile="0" resource="0" file="Source/dsp/DirtySystem.h"/>
+        <FILE id="TTAw7I" name="Envelope.h" compile="0" resource="0" file="Source/dsp/Envelope.h"/>
+        <FILE id="wNhnY1" name="Filter.h" compile="0" resource="0" file="Source/dsp/Filter.h"/>
+        <FILE id="gmUaUO" name="FreqShifter.h" compile="0" resource="0" file="Source/dsp/FreqShifter.h"/>
+        <FILE id="QqNXM8" name="IIRBlep.h" compile="0" resource="0" file="Source/dsp/IIRBlep.h"/>
+        <FILE id="y8Wlul" name="Serializer.cpp" compile="1" resource="0" file="Source/dsp/Serializer.cpp"/>
+        <FILE id="GxmtwZ" name="Serializer.h" compile="0" resource="0" file="Source/dsp/Serializer.h"/>
+        <FILE id="gmNiHR" name="TableBlep.cpp" compile="1" resource="0" file="Source/dsp/TableBlep.cpp"/>
+        <FILE id="f9kDRh" name="TableBlep.h" compile="0" resource="0" file="Source/dsp/TableBlep.h"/>
+        <FILE id="lWX6FL" name="Wavetable.h" compile="0" resource="0" file="Source/dsp/Wavetable.h"/>
+      </GROUP>
       <GROUP id="{ED663600-A631-13DD-69D6-48D639E3BA81}" name="ui">
-        <FILE id="zTOsP3" name="LM_slider.cpp" compile="1" resource="0" file="Source/ui/LM_slider.cpp"/>
-        <FILE id="m59MnF" name="LM_slider.h" compile="0" resource="0" file="Source/ui/LM_slider.h"/>
-        <FILE id="WhwxY6" name="LMKnobDirect.h" compile="0" resource="0" file="Source/ui/LMKnobDirect.h"/>
-        <FILE id="unW2aF" name="LMKnobDirect.cpp" compile="1" resource="0"
+        <FILE id="LEcqn1" name="PresetComponent.h" compile="0" resource="0"
+              file="Source/ui/PresetComponent.h"/>
+        <FILE id="i3GDNQ" name="DirtynthUI.h" compile="0" resource="0" file="Source/ui/DirtynthUI.h"/>
+        <FILE id="EQcAvY" name="LM_slider.cpp" compile="1" resource="0" file="Source/ui/LM_slider.cpp"/>
+        <FILE id="F8ZKnp" name="LM_slider.h" compile="0" resource="0" file="Source/ui/LM_slider.h"/>
+        <FILE id="D5xQhx" name="LMKnobDirect.cpp" compile="1" resource="0"
               file="Source/ui/LMKnobDirect.cpp"/>
-        <FILE id="c1zwzu" name="DirtynthUI.h" compile="0" resource="0" file="Source/ui/DirtynthUI.h"/>
+        <FILE id="WEt9DX" name="LMKnobDirect.h" compile="0" resource="0" file="Source/ui/LMKnobDirect.h"/>
       </GROUP>
-      <GROUP id="{CC3BDEF2-88EF-CDA1-2F21-32E658B472C8}" name="dsp">
-        <GROUP id="{B5870AA6-6489-B3E9-C062-95CFA67452A1}" name="effects">
-          <GROUP id="{54FAB143-667B-D34C-14B2-43844EA681CF}" name="chorus">
-            <FILE id="YAmBmV" name="lmchorus.h" compile="0" resource="0" file="Source/dsp/effects/chorus/lmchorus.h"/>
-          </GROUP>
-          <GROUP id="{33F7BBA2-A9F3-050D-F09D-7A193B3B04D1}" name="delay">
-            <FILE id="WFacVD" name="lmdelay.h" compile="0" resource="0" file="Source/dsp/effects/delay/lmdelay.h"/>
-          </GROUP>
-          <GROUP id="{00682942-9005-6B84-6EB2-91109FCDBB4C}" name="reverb">
-            <FILE id="yU6z1t" name="VintageHall.h" compile="0" resource="0" file="Source/dsp/effects/reverb/VintageHall.h"/>
-          </GROUP>
-          <FILE id="XYYZQq" name="effects.h" compile="0" resource="0" file="Source/dsp/effects/effects.h"/>
-        </GROUP>
-        <GROUP id="{648EFEA0-C4EF-B649-3FED-53DB02A9128E}" name="presets">
-          <FILE id="Fp3wuS" name="presets.h" compile="0" resource="0" file="Source/dsp/presets/presets.h"/>
-        </GROUP>
-        <FILE id="GArvah" name="DirtySystem.h" compile="0" resource="0" file="Source/dsp/DirtySystem.h"/>
-        <FILE id="Q8olbz" name="Cpptools.h" compile="0" resource="0" file="Source/dsp/Cpptools.h"/>
-        <FILE id="CQvk1G" name="DirtyParams.h" compile="0" resource="0" file="Source/dsp/DirtyParams.h"/>
-        <FILE id="Lsf1Bt" name="Envelope.h" compile="0" resource="0" file="Source/dsp/Envelope.h"/>
-        <FILE id="MxBvhD" name="Filter.h" compile="0" resource="0" file="Source/dsp/Filter.h"/>
-        <FILE id="oY5Heu" name="IIRBlep.h" compile="0" resource="0" file="Source/dsp/IIRBlep.h"/>
-        <FILE id="r29II9" name="TableBlep.cpp" compile="1" resource="0" file="Source/dsp/TableBlep.cpp"/>
-        <FILE id="MbZ4Fa" name="TableBlep.h" compile="0" resource="0" file="Source/dsp/TableBlep.h"/>
-        <FILE id="hPnpIL" name="FreqShifter.h" compile="0" resource="0" file="Source/dsp/FreqShifter.h"/>
-        <FILE id="DVHdDd" name="Wavetable.h" compile="0" resource="0" file="Source/dsp/Wavetable.h"/>
-      </GROUP>
-      <FILE id="cIX3E0" name="PluginProcessor.cpp" compile="1" resource="0"
-            file="Source/PluginProcessor.cpp"/>
-      <FILE id="QTzydr" name="PluginProcessor.h" compile="0" resource="0"
-            file="Source/PluginProcessor.h"/>
-      <FILE id="CBBo5T" name="PluginEditor.cpp" compile="1" resource="0"
+      <FILE id="kQ3SFh" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
-      <FILE id="NEXZnC" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="LeM4r4" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="YoRujj" name="PluginProcessor.cpp" compile="1" resource="0"
+            file="Source/PluginProcessor.cpp"/>
+      <FILE id="rw13oC" name="PluginProcessor.h" compile="0" resource="0"
+            file="Source/PluginProcessor.h"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>
