@@ -75,7 +75,11 @@ namespace MinusMKI
 		virtual void Apply(float* table, int numSamples) {};
 		virtual void SetMutantParams(float param1, float param2, float param3) {};
 		inline float modf01(float x) { return x - floorf(x); }
-		inline float clampf01(float x) { return x < 0.0 ? 0.0 : (x > 1.0 ? 1.0 : x); }
+		inline float clampf01(float x)
+		{
+			if (isnan(x))return 0;
+			return x < 0.0 ? 0.0 : (x > 1.0 ? 1.0 : x);
+		}
 	};
 
 	template<int TableWidth>

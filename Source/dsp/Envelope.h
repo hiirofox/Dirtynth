@@ -190,22 +190,31 @@ namespace MinusMKI
 		{
 			this->curve = curve;
 			this->downbit = downbit;
-			this->smooth = Curve(smooth, 1.0);//1
+			this->smooth = Curve(1.0 - smooth, 1.0);//1
 			this->overshoot = overshoot;//2
 			this->hp = Curve(hp, 1.0);//3
 			this->trajitter = trajitter;//4
 		}
 		void Step() override
 		{
-			z1 += smooth * (cv - z1);
-			z2 += hp * (z1 - z2);
-			y = z1 - z2;
+			//z1 += smooth * (cv - z1);
+			//z2 += hp * (z1 - z2);
+			//y = z1 - z2;
+			y = cv;
 		}
-		float GetValue() override { return y; };
+		float GetValue() override
+		{
+			if (y < 0)y = 0;
+			if (y > 1.0)y = 1.0;
+			if (isnan(y))y = 0;
+			return y;
+		};
 
 		void SetControlValue(float cv) override
 		{
-			this->cv = Downbit(Curve(cv, curve), downbit);
+			//this->cv = Downbit(Curve(cv, curve), downbit);
+			//this->cv = Curve(cv, curve);
+			this->cv = cv;
 		}
 		void SetControlSourceType(ControlSourceType cst) override { this->cst = cst; }
 		ControlSourceType GetControlSourceType() override { return cst; }
