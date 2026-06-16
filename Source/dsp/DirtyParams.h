@@ -442,7 +442,6 @@ namespace Dirtynth
 
 			PatchDesc(descs, prefix + "TargetID1", "Target1", false, Integer, 0.0f, maxTargetID, 0.0f);
 			PatchDesc(descs, prefix + "TargetID2", "Target2", false, Integer, 0.0f, maxTargetID, 0.0f);
-
 			if (envelopeType == 0)//ADSR(per note)
 			{
 				PatchDesc(descs, prefix + "P1", "Attack", false, TimeMsExp, 0.0f, 60000.0f, 0.0f);
@@ -479,9 +478,9 @@ namespace Dirtynth
 			{
 				const std::string prefix = Prefix("enve", i + 1);
 				const DirtynthParams::EnveParams& enveParams = paramsRef.enveParams[i];
-				PatchDesc(descs, prefix + "Amount1", "Amount1", false,
+				PatchDesc(descs, prefix + "Amount1", "Amount1", true,
 					GetAmountFeelForTarget(descs, enveParams.targetID1), -1.0f, 1.0f, 0.0f);
-				PatchDesc(descs, prefix + "Amount2", "Amount2", false,
+				PatchDesc(descs, prefix + "Amount2", "Amount2", true,
 					GetAmountFeelForTarget(descs, enveParams.targetID2), -1.0f, 1.0f, 0.0f);
 			}
 		}
