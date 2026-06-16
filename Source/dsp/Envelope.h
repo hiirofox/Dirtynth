@@ -15,12 +15,12 @@ namespace MinusMKI
 		NoteGate = -3,//note on触发1，note off触发0(二值)
 		NotePitch = -2,//归一化key num，即key/128
 		Velocity = -1,//力度
+		Aftertouch = 0,//触后
 
 		CC1 = 1,//CC1调制轮
 		CC2 = 2,//CC2呼吸控制器
-		Aftertouch = 3,//触后
-		CV1 = 4,//CV1电压
-		CV2 = 5,//CV2电压
+		CV1 = 3,//CV1电压
+		CV2 = 4,//CV2电压
 	};
 	class Envelope
 	{
@@ -28,14 +28,13 @@ namespace MinusMKI
 	public:
 		virtual void Reset() {};
 		virtual void SetSampleRate(float sr) {};//设置采样率
-		virtual void SetNoteState(bool off0on1) {};//设置按键状态
 		virtual void SetParams(float p1, float p2, float p3, float p4, float p5, float p6) {};//设置包络参数
 		virtual void Step() {};//步进
 		virtual float GetValue() { return 0.0f; };//获取值
 
-		virtual void SetControlValue(float cv) {};//设置控制值，可以是velocity,cc,mpe,cv等等，仅用于调制源
-		virtual void SetControlSourceType(ControlSourceType cst) {};
-		virtual ControlSourceType GetControlSourceType() { return ControlSourceType::NoteGate; }
+		virtual void SetControlValue(float cv) = 0;//设置控制值，可以是velocity,cc,mpe,cv等等，仅用于调制源
+		virtual void SetControlSourceType(ControlSourceType cst) = 0;
+		virtual ControlSourceType GetControlSourceType() = 0;
 	};
 	class ADSR :public Envelope
 	{
@@ -49,7 +48,7 @@ namespace MinusMKI
 
 		float attl = 100.0, attShape = -1;
 	public:
-		ADSR() { SetControlSourceType(ControlSourceType::NoteGate); }
+		//ADSR() { SetControlSourceType(ControlSourceType::NoteGate); }
 		ADSR(ControlSourceType cst) { SetControlSourceType(cst); }
 		void SetControlSourceType(ControlSourceType cst) override { this->cst = cst; }
 		ControlSourceType GetControlSourceType() override { return cst; }
@@ -68,9 +67,9 @@ namespace MinusMKI
 			pos = 0.0;
 			y = 0.0;
 		}
-		void SetNoteState(bool state) override
+		void SetControlValue(float cv) override //一切皆cv！
 		{
-			if (state)
+			if (cv > 0.5)
 			{
 				pos = 1.0;
 				//y = 0.0;//attack强制从0开始
@@ -172,11 +171,11 @@ namespace MinusMKI
 		{
 			perceptBit = Curve(perceptBit, 1.0);
 			const float quanti = 65536.0 * 4.0;
-			int ix = x * perceptBit * quanti;
+			int ix = (1.0 - x) * perceptBit * quanti;
 			return ix / perceptBit / quanti;
 		}
 	public:
-		ModSource() { SetControlSourceType(ControlSourceType::NoteGate); };
+		//ModSource() { SetControlSourceType(ControlSourceType::NoteGate); };
 		ModSource(ControlSourceType cst) { SetControlSourceType(cst); }
 
 		void Reset() override
@@ -200,7 +199,12 @@ namespace MinusMKI
 		}
 		float GetValue() override { return y; };
 
-		void SetControlValue(float cv) override { this->cv = Downbit(Curve(cv, curve), downbit); };
+		void SetControlValue(float cv) override
+		{
+			//	this->cv = Downbit(Curve(cv, curve), downbit); 
+			//this->cv = Curve(cv, curve);
+			this->cv = cv;
+		}
 		void SetControlSourceType(ControlSourceType cst) override { this->cst = cst; }
 		ControlSourceType GetControlSourceType() override { return cst; }
 	};

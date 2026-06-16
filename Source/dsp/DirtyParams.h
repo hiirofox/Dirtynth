@@ -13,7 +13,7 @@ namespace Dirtynth
 	constexpr static int NumWavetablePresets = 1;
 	constexpr static int NumMutantTypes = 4;
 	constexpr static int NumFilterTypes = 7;
-	constexpr static int NumEnvelopeTypes = 1;
+	constexpr static int NumEnvelopeTypes = 7;
 	constexpr static int NumEnvelopeModes = 5;
 	constexpr static int NumEffectTypes = 4;
 
@@ -443,7 +443,7 @@ namespace Dirtynth
 			PatchDesc(descs, prefix + "TargetID1", "Target1", false, Integer, 0.0f, maxTargetID, 0.0f);
 			PatchDesc(descs, prefix + "TargetID2", "Target2", false, Integer, 0.0f, maxTargetID, 0.0f);
 
-			if (envelopeType == 0)
+			if (envelopeType == 0)//ADSR(per note)
 			{
 				PatchDesc(descs, prefix + "P1", "Attack", false, TimeMsExp, 0.0f, 60000.0f, 0.0f);
 				PatchDesc(descs, prefix + "P2", "AttShape", false, Linear, -16.0f, 16.0f, 0.0f);
@@ -452,9 +452,14 @@ namespace Dirtynth
 				PatchDesc(descs, prefix + "P5", "Sustain", false, Linear, 0.0f, 1.0f, 1.0f);
 				PatchDesc(descs, prefix + "P6", "Release", false, TimeMsExp, 0.0f, 60000.0f, 0.0f);
 			}
-			else if (envelopeType == 1)//´ý²¹³äÀàÐÍ
+			else if (envelopeType >= 1 && envelopeType <= 6)//ModSource
 			{
-
+				PatchDesc(descs, prefix + "P1", "Curve", false, Linear, -1.0f, 1.0, 0.0f);
+				PatchDesc(descs, prefix + "P2", "Downbit", false, Linear, 0.0, 1.0, 0.0f);
+				PatchDesc(descs, prefix + "P3", "Smooth", false, Linear, 0.0f, 1.0, 0.0f);
+				PatchDesc(descs, prefix + "P4", "Overshoot", false, Linear, 0.0, 1.0, 0.0f);
+				PatchDesc(descs, prefix + "P5", "HP", false, Linear, 0.0f, 1.0f, 0.0f);
+				PatchDesc(descs, prefix + "P6", "Trajjitter", false, Linear, 0.0f, 1.0, 0.0f);
 			}
 		}
 

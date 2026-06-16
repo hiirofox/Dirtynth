@@ -166,7 +166,7 @@ void DirtynthAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
 		{
 			event.type = DirtynthMidiEvent::NoteOn;
 			event.note = midiMessage.getNoteNumber();
-			event.velocity = static_cast<int>(midiMessage.getVelocity() * 127.0f);
+			event.velocity = static_cast<int>(midiMessage.getVelocity());
 			midiQueue[midiQueueLen++] = event;
 		}
 		else if (midiMessage.isNoteOff())
