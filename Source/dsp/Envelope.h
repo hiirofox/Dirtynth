@@ -149,6 +149,7 @@ namespace MinusMKI
 		ControlSourceType cst;
 		float sampleRate = 48000.0;
 		float cv = 0.0;
+		float z1 = 0.0, z2 = 0.0;
 		float y = 0.0;
 
 		float curve = 0.0;
@@ -181,6 +182,7 @@ namespace MinusMKI
 		void Reset() override
 		{
 			y = cv;
+			z1 = cv, z2 = cv;
 		};
 		void SetSampleRate(float sr) override { sampleRate = sr; }
 		void SetNoteState(bool off0on1) {}
@@ -188,22 +190,22 @@ namespace MinusMKI
 		{
 			this->curve = curve;
 			this->downbit = downbit;
-			this->smooth = smooth;//1
+			this->smooth = Curve(smooth, 1.0);//1
 			this->overshoot = overshoot;//2
-			this->hp = hp;//3
+			this->hp = Curve(hp, 1.0);//3
 			this->trajitter = trajitter;//4
 		}
 		void Step() override
 		{
-			y = cv;
+			z1 += smooth * (cv - z1);
+			z2 += hp * (z1 - z2);
+			y = z1 - z2;
 		}
 		float GetValue() override { return y; };
 
 		void SetControlValue(float cv) override
 		{
-			//	this->cv = Downbit(Curve(cv, curve), downbit); 
-			//this->cv = Curve(cv, curve);
-			this->cv = cv;
+			this->cv = Downbit(Curve(cv, curve), downbit);
 		}
 		void SetControlSourceType(ControlSourceType cst) override { this->cst = cst; }
 		ControlSourceType GetControlSourceType() override { return cst; }
