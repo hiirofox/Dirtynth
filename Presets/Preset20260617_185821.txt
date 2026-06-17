@@ -23,11 +23,11 @@
 	osc2MutBP1 = 0.268000
 	osc2MutBP2 = 1.000000
 	osc2MutBP3 = 0.004000
-	osc2Pitch = -12.000000
-	osc2Detune = 0.000000
+	osc2Pitch = 0.000000
+	osc2Detune = -3.199997
 	pmDepth = 0.000000
 	osc1gain = 1.000000
-	osc2gain = 0.124000
+	osc2gain = 0.252000
 	filt1Type = 1.000000
 	filt1Cutoff = 158.957779
 	filt1KeyTrack = 0.312000
