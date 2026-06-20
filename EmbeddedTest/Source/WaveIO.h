@@ -190,8 +190,8 @@ public:
 		int err;
 		const char* device = "default";
 		int dir = 0;
-		unsigned int targetPeriodTime = 10000;
-		unsigned int targetBufferTime = 32000;
+		unsigned int targetPeriodTime = 4000;
+		unsigned int targetBufferTime = 20000;
 		snd_pcm_uframes_t bufferSizeFrames = 0;
 
 		err = snd_pcm_open(&pcmHandle, device, SND_PCM_STREAM_PLAYBACK, 0);

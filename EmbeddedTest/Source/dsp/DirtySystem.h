@@ -9,14 +9,29 @@
 #include "Envelope.h"
 #include "DirtyParams.h"
 
+#ifndef _WIN32
+#include <pthread.h>
+#include <sched.h>
+#endif
+
 namespace Dirtynth
 {
 	using namespace MinusMKI;
 
 	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好，也不是越小越好
 	constexpr static int MaxPolyphony = 8;
-	constexpr static int NumMutantThreads = 2;//根据平台cpu填
+	constexpr static int NumMutantThreads = 3;//根据平台cpu填
 	constexpr static int MaxBlockSize = 256;//内部处理用的最大块大小
+
+	void BindToCPU(int cpu)
+	{
+#ifndef _WIN32
+		cpu_set_t cpuset;
+		CPU_ZERO(&cpuset);
+		CPU_SET(cpu, &cpuset);
+		pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
+	}
 
 	struct RegMutant
 	{
@@ -169,6 +184,7 @@ namespace Dirtynth
 		}
 		void MutantThreadFunc(int threadId)
 		{
+			BindToCPU(threadId + 1);//从cpu1开始，之后都是跑mutant的核，别窜到实时核
 			float* localTable = new float[TableWidth * 2];
 			WavetableGenerator& wtGeneratorOsc1 = wtgenOsc1[threadId];
 			WavetableGenerator& wtGeneratorOsc2 = wtgenOsc2[threadId];
@@ -489,6 +505,7 @@ namespace Dirtynth
 	public:
 		DirtynthSystem()
 		{
+			BindToCPU(0);//实时线程绑核心0
 			for (int i = 0; i < MaxPolyphony; ++i)
 			{
 				voices[i].SetMutantThreadPool(&mutantThreadPool);
