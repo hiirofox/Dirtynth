@@ -310,8 +310,10 @@ namespace MinusMKI
 			//comb
 			for (int i = 1; i < half; ++i)
 			{
-				float x = (float)i / half * 2.0 * M_PI;
-				float m = cosf(x * comb);
+				float x = (float)i / half;
+				x = sqrtf(x);
+				float m = cosf(x * 2.0 * M_PI * comb);//ÕâÒ²ºÜdisperse
+				m *= m * m;//niiiice!
 				descTableRe[i] *= m;
 				descTableIm[i] *= m;
 			}
@@ -331,7 +333,7 @@ namespace MinusMKI
 			comb = clampf01(comb);
 			this->disperse = disperse * disperse * disperse * disperse * 200.0;
 			this->harmonic = harmonic * 16.0;
-			this->comb = comb * TableWidth / 8.0;
+			this->comb = comb * comb * TableWidth / 16.0 * 0.5;
 		}
 	};
 
