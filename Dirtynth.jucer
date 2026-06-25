@@ -20,6 +20,7 @@
         <GROUP id="{FA673913-808B-B782-8849-D9AE808544CF}" name="presets">
           <FILE id="snx9kZ" name="presets.h" compile="0" resource="0" file="Source/dsp/presets/presets.h"/>
         </GROUP>
+        <FILE id="GYtfZr" name="Platform.h" compile="0" resource="0" file="Source/dsp/Platform.h"/>
         <FILE id="Oonp7o" name="Cpptools.h" compile="0" resource="0" file="Source/dsp/Cpptools.h"/>
         <FILE id="Vl7RUi" name="DirtyParams.h" compile="0" resource="0" file="Source/dsp/DirtyParams.h"/>
         <FILE id="RzTias" name="DirtySystem.h" compile="0" resource="0" file="Source/dsp/DirtySystem.h"/>

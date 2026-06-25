@@ -8,6 +8,7 @@
 #include "Filter.h"
 #include "Envelope.h"
 #include "DirtyParams.h"
+#include "Platform.h"
 
 namespace Dirtynth
 {
@@ -169,6 +170,7 @@ namespace Dirtynth
 		}
 		void MutantThreadFunc(int threadId)
 		{
+			Platform::BindToCPU(threadId + 1);//´Ó1ºË¿ªÊ¼
 			float* localTable = new float[TableWidth * 2];
 			WavetableGenerator& wtGeneratorOsc1 = wtgenOsc1[threadId];
 			WavetableGenerator& wtGeneratorOsc2 = wtgenOsc2[threadId];
@@ -489,6 +491,7 @@ namespace Dirtynth
 	public:
 		DirtynthSystem()
 		{
+			Platform::BindToCPU(0);
 			for (int i = 0; i < MaxPolyphony; ++i)
 			{
 				voices[i].SetMutantThreadPool(&mutantThreadPool);
