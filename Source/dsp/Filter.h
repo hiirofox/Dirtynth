@@ -337,27 +337,39 @@ namespace MinusMKI
 		}
 	public:
 		float lastDelayTime = 10.0, nextDelayTime = 10.0;
+		float lastkfrac1 = 0, lastkfrac2 = 0;
+		float nextkfrac1 = 0, nextkfrac2 = 0;
 		inline float ProcessSample(float x) override final
 		{
 			x *= gainfix;
 			interval += gradient;
-			if (interval >= 1.0)
+			if (interval > 1.0)
 			{
 				interval -= 1.0;
 				lastDelayTime = nextDelayTime;
 				nextDelayTime = delayTime;
+				float kfrac1 = lastDelayTime - (int)lastDelayTime;
+				float kfrac2 = nextDelayTime - (int)nextDelayTime;
+				lastkfrac1 = nextkfrac1;
+				lastkfrac2 = nextkfrac2;
+				nextkfrac1 = kfrac1;
+				nextkfrac2 = kfrac2;
 			}
 			int idt1 = lastDelayTime;
 			int idt2 = nextDelayTime;
-			float kfrac1 = lastDelayTime - idt1;
-			float kfrac2 = nextDelayTime - idt2;
 			int writePos = pos % MaxBufferSize;
 			int readPos1 = (pos + MaxBufferSize - idt1) % MaxBufferSize;
 			int readPos2 = (pos + MaxBufferSize - idt2) % MaxBufferSize;
 			pos++;
 
-			float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) / (1.0 + kfrac1));
-			float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) / (1.0 + kfrac2));
+			float kfrac1 = lastkfrac1 + (nextkfrac1 - lastkfrac1) * interval;
+			float kfrac2 = lastkfrac2 + (nextkfrac2 - lastkfrac2) * interval;
+			//float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) / (1.0 + kfrac1));
+			//float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) / (1.0 + kfrac2));
+			//float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) * 0.95);
+			//float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) * 0.95);
+			float bufout1 = buf[readPos1];
+			float bufout2 = buf[readPos2];
 			float bufout = bufout1 + (bufout2 - bufout1) * interval;
 
 			float xWithFB_Add = x + bufout * fb;
@@ -368,7 +380,9 @@ namespace MinusMKI
 			float xWithFB = morph < 0.5 ? xWithFB_Add : xWithFB_Sub;
 			float out = out_Add + (out_Sub - out_Add) * morph;
 
-			buf[writePos] = ProcessDeDC(xWithFB);
+			//buf[writePos] = ProcessDeDC(xWithFB);
+			float kfrac = lastkfrac2 + (nextkfrac2 - lastkfrac2) * interval;
+			buf[writePos] = ProcessDeDC(ProcessAPF(z1, xWithFB, 0.0));
 			return out;
 		}
 		void Reset() override
