@@ -439,6 +439,8 @@ namespace Dirtynth
 				voicefreq = freq;
 				voiceVel = velocity * velocity;
 				sampleCount = EnvelopeUpdateInterval;//立即更新包络
+				filter1->Reset();
+				filter2->Reset();
 			}
 		}
 		std::array<Envelope*, NumEnvelopes> GetSelectedEnvelops(const DirtynthParams& params)//根据params返回当前选中的包络指针数组，方便外部函数调用

@@ -305,113 +305,168 @@ namespace MinusMKI
 			sampleRate = sr;
 		}
 	};
-
-	class CombFilter :public Filter
+	class CombFilter : public Filter
 	{
 	private:
-		constexpr static int MaxBufferSize = 4096;//minfreq = 48000/4096
+		constexpr static int MaxBufferSize = 4096;
+
 		float sampleRate = 48000;
 		float buf[MaxBufferSize] = { 0 };
 		int pos = 0;
-		float delayTime = 1.0;
+
+		float gradient = 1.0 / 256.0;
+		float interval = 0.0;
+
+		float lastDelayTime = 10.0;
+		float nextDelayTime = 10.0;
+		float delayTime = 10.0;
+		float currentDelay = 10.0;
+
 		float fb = 0.0;
 		float gainfix = 1.0;
-		float morph = 0;
+		float morph = 0.0;
 
-		float interval = 0.0;
-		float gradient = 1.0 / 32.0;
-
-		float z1 = 0, z2 = 0;
-		inline float ProcessAPF(float& z, float x, float k)//k 0->1 : z^-1 -> 1
-		{
-			x = x - k * z;
-			float y = k * x + z;
-			z = x;
-			return y;
-		}
-		float ddcz = 0;
+		float dc = 0.0;
 		inline float ProcessDeDC(float x)
 		{
-			ddcz += 0.01 * (x - ddcz);
-			return x - ddcz;
+			dc += 0.01f * (x - dc);
+			return x - dc;
 		}
 	public:
-		float lastDelayTime = 10.0, nextDelayTime = 10.0;
-		float lastkfrac1 = 0, lastkfrac2 = 0;
-		float nextkfrac1 = 0, nextkfrac2 = 0;
+		inline float FracReadLinear(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			float frac = readPos - (int)readPos;
+			int i0 = ((int)readPos + 0) & (MaxBufferSize - 1);
+			int i1 = ((int)readPos + 1) & (MaxBufferSize - 1);
+			return buf[i0] + (buf[i1] - buf[i0]) * frac;
+		}
+		inline float FracReadHermite(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			int i1 = (int)readPos;
+			float frac = readPos - (float)i1;
+			int i0 = (i1 - 1) & (MaxBufferSize - 1);
+			int i1m = (i1 + 0) & (MaxBufferSize - 1);
+			int i2 = (i1 + 1) & (MaxBufferSize - 1);
+			int i3 = (i1 + 2) & (MaxBufferSize - 1);
+			float xm1 = buf[i0];
+			float x0 = buf[i1m];
+			float x1 = buf[i2];
+			float x2 = buf[i3];
+			float c0 = x0;
+			float c1 = 0.5f * (x1 - xm1);
+			float c2 = xm1 - 2.5f * x0 + 2.0f * x1 - 0.5f * x2;
+			float c3 = 0.5f * (x2 - xm1) + 1.5f * (x0 - x1);
+			return ((c3 * frac + c2) * frac + c1) * frac + c0;
+		}
+		inline float FracRead4PointLagrange(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			int i1 = (int)readPos;
+			float t = readPos - (float)i1;
+			int i0 = (i1 - 1) & (MaxBufferSize - 1);
+			int i1m = (i1 + 0) & (MaxBufferSize - 1);
+			int i2 = (i1 + 1) & (MaxBufferSize - 1);
+			int i3 = (i1 + 2) & (MaxBufferSize - 1);
+			float x0 = buf[i0];
+			float x1 = buf[i1m];
+			float x2 = buf[i2];
+			float x3 = buf[i3];
+			float c0 = x1;
+			float c1 = 0.5f * (x2 - x0);
+			float c2 = x0 - 2.5f * x1 + 2.0f * x2 - 0.5f * x3;
+			float c3 = 0.5f * (x3 - x0) + 1.5f * (x1 - x2);
+			return ((c3 * t + c2) * t + c1) * t + c0;
+		}
+		inline float FracRead3PointLagrange(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			int i1 = (int)readPos;
+			float frac = readPos - (float)i1;
+			int i0 = (i1 - 1) & (MaxBufferSize - 1);
+			int i1m = (i1 + 0) & (MaxBufferSize - 1);
+			int i2 = (i1 + 1) & (MaxBufferSize - 1);
+			float xm1 = buf[i0];
+			float x0 = buf[i1m];
+			float x1 = buf[i2];
+			float a = 0.5f * (x1 + xm1) - x0;
+			float b = 0.5f * (x1 - xm1);
+			float c = x0;
+			return (a * frac + b) * frac + c;
+		}
+		inline float FracRead(float currentDelay) { return FracReadLinear(currentDelay); }
 		inline float ProcessSample(float x) override final
 		{
 			x *= gainfix;
+
+			//这个在快速调制下pitch不容易变
 			interval += gradient;
-			if (interval > 1.0)
+			if (interval >= 1.0)
 			{
 				interval -= 1.0;
 				lastDelayTime = nextDelayTime;
 				nextDelayTime = delayTime;
-				float kfrac1 = lastDelayTime - (int)lastDelayTime;
-				float kfrac2 = nextDelayTime - (int)nextDelayTime;
-				lastkfrac1 = nextkfrac1;
-				lastkfrac2 = nextkfrac2;
-				nextkfrac1 = kfrac1;
-				nextkfrac2 = kfrac2;
 			}
-			int idt1 = lastDelayTime;
-			int idt2 = nextDelayTime;
-			int writePos = pos % MaxBufferSize;
-			int readPos1 = (pos + MaxBufferSize - idt1) % MaxBufferSize;
-			int readPos2 = (pos + MaxBufferSize - idt2) % MaxBufferSize;
-			pos++;
-
-			float kfrac1 = lastkfrac1 + (nextkfrac1 - lastkfrac1) * interval;
-			float kfrac2 = lastkfrac2 + (nextkfrac2 - lastkfrac2) * interval;
-			//float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) / (1.0 + kfrac1));
-			//float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) / (1.0 + kfrac2));
-			//float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) * 0.95);
-			//float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) * 0.95);
-			float bufout1 = buf[readPos1];
-			float bufout2 = buf[readPos2];
+			float bufout1 = FracRead(lastDelayTime);
+			float bufout2 = FracRead(nextDelayTime);
 			float bufout = bufout1 + (bufout2 - bufout1) * interval;
 
-			float xWithFB_Add = x + bufout * fb;
-			float xWithFB_Sub = x - bufout * fb;
+			//这个虽然平滑但pitch容易变
+			//currentDelay += 0.15f * (delayTime - currentDelay);
+			//float bufout = FracRead(currentDelay);
+
+			float bufout_fb = bufout * fb;
+			float xWithFB_Add = x + bufout_fb;
+			float xWithFB_Sub = x - bufout_fb;
 			float out_Add = xWithFB_Add + bufout;
 			float out_Sub = xWithFB_Sub - bufout;
-
-			float xWithFB = morph < 0.5 ? xWithFB_Add : xWithFB_Sub;
+			float xWithFB = (morph < 0.5f) ? xWithFB_Add : xWithFB_Sub;
 			float out = out_Add + (out_Sub - out_Add) * morph;
-
-			//buf[writePos] = ProcessDeDC(xWithFB);
-			float kfrac = lastkfrac2 + (nextkfrac2 - lastkfrac2) * interval;
-			buf[writePos] = ProcessDeDC(ProcessAPF(z1, xWithFB, 0.0));
+			buf[pos & (MaxBufferSize - 1)] = ProcessDeDC(xWithFB);
+			pos++;
 			return out;
 		}
+
 		void Reset() override
 		{
-			for (auto& v : buf)v = 0;
-			z1 = z2 = 0;
-			ddcz = 0.0f;
+			for (auto& v : buf) v = 0.0;
+			dc = 0.0;
+			pos = 0;
+			currentDelay = delayTime;
 		}
-		void SetSampleRate(float sr) override { sampleRate = sr; }
+
+		void SetSampleRate(float sr) override
+		{
+			sampleRate = sr;
+		}
+
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
-			if (cutoff < 10.0)cutoff = 10.0;
-			delayTime = sampleRate / cutoff - 1;
-			if (delayTime < 1)delayTime = 1;
-			if (delayTime > MaxBufferSize - 1)delayTime = MaxBufferSize - 1;
-			fb = 1.0 - 1.0 / reso;
-			if (fb < 0)fb = 0;
-			if (fb > 0.999)fb = 0.999;
-			this->morph = morph;
+			if (cutoff < 10.0) cutoff = 10.0;
 
-			gainfix = sqrtf(1.0 - fb);
+			delayTime = sampleRate / cutoff - 1.0;
+			if (delayTime < 1.0) delayTime = 1.0;
+			if (delayTime > MaxBufferSize - 2) delayTime = MaxBufferSize - 2;
+
+			gradient = delayTime / sampleRate;
+			if (gradient < 1.0 / 256.0)gradient = 1.0 / 256.0;
+
+			fb = 1.0 - 0.707 / reso;
+			if (fb < 0.0) fb = 0.0;
+			if (fb > 0.999f) fb = 0.999;
+
+			this->morph = morph;
+			gainfix = sqrtf(1.0 - fb);//nice
+			//gainfix = 1.0 - fb;//0dB
 		}
 	};
-
 	class CombFilter4Stage :public Filter
 	{
 	private:
 		CombFilter cf1, cf2, cf3, cf4;
 		float gainFix = 1.0;
+		float sampleRate = 48000.0;
 	public:
 		float ProcessSample(float x) override
 		{
@@ -431,16 +486,26 @@ namespace MinusMKI
 		}
 		void SetSampleRate(float sr) override
 		{
+			sampleRate = sr;
 			cf1.SetSampleRate(sr);
 			cf2.SetSampleRate(sr);
 			cf3.SetSampleRate(sr);
 			cf4.SetSampleRate(sr);
 		}
+
 		void SetFilterParams(float cutoff, float reso, float morph) override
 		{
-			reso = sqrtf(sqrtf(reso));
-			gainFix = 1.0 / 8.0;
 			morph = morph * morph + 1.0;
+
+			reso = sqrtf(reso);
+			float fb = 1.0 - 0.707 / reso;
+			if (fb < 0.0) fb = 0.0;
+			if (fb > 0.999f) fb = 0.999;
+
+			gainFix = 1.0 / 4.0;
+			//gainFix *= powf(1.0 - fb, 2);//0dB at CombFilter::gainfix = sqrtf(1.0 - fb);
+			gainFix *= 1.0 - fb;//nice
+
 			cf1.SetFilterParams(cutoff * (morph *= morph), reso, 0);
 			cf2.SetFilterParams(cutoff * (morph *= morph), reso, 0);
 			cf3.SetFilterParams(cutoff * (morph *= morph), reso, 0);
@@ -460,8 +525,7 @@ namespace MinusMKI
 		float gainfix = 1.0;
 		float morph = 0;
 
-		float interval = 0.0;
-		float gradient = 1.0 / 32.0;
+		float currentDelay = 10.0;
 
 		//实际上诸如此类一阶全通还可以少一个乘法
 		//下次看到再修吧
@@ -490,42 +554,89 @@ namespace MinusMKI
 			return x - ddcz;
 		}
 	public:
-		float lastDelayTime = 10.0, nextDelayTime = 10.0;
+		inline float FracReadLinear(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			float frac = readPos - (int)readPos;
+			int i0 = ((int)readPos + 0) & (MaxBufferSize - 1);
+			int i1 = ((int)readPos + 1) & (MaxBufferSize - 1);
+			return buf[i0] + (buf[i1] - buf[i0]) * frac;
+		}
+		inline float FracReadHermite(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			int i1 = (int)readPos;
+			float frac = readPos - (float)i1;
+			int i0 = (i1 - 1) & (MaxBufferSize - 1);
+			int i1m = (i1 + 0) & (MaxBufferSize - 1);
+			int i2 = (i1 + 1) & (MaxBufferSize - 1);
+			int i3 = (i1 + 2) & (MaxBufferSize - 1);
+			float xm1 = buf[i0];
+			float x0 = buf[i1m];
+			float x1 = buf[i2];
+			float x2 = buf[i3];
+			float c0 = x0;
+			float c1 = 0.5f * (x1 - xm1);
+			float c2 = xm1 - 2.5f * x0 + 2.0f * x1 - 0.5f * x2;
+			float c3 = 0.5f * (x2 - xm1) + 1.5f * (x0 - x1);
+			return ((c3 * frac + c2) * frac + c1) * frac + c0;
+		}
+		inline float FracRead4PointLagrange(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			int i1 = (int)readPos;
+			float t = readPos - (float)i1;
+			int i0 = (i1 - 1) & (MaxBufferSize - 1);
+			int i1m = (i1 + 0) & (MaxBufferSize - 1);
+			int i2 = (i1 + 1) & (MaxBufferSize - 1);
+			int i3 = (i1 + 2) & (MaxBufferSize - 1);
+			float x0 = buf[i0];
+			float x1 = buf[i1m];
+			float x2 = buf[i2];
+			float x3 = buf[i3];
+			float c0 = x1;
+			float c1 = 0.5f * (x2 - x0);
+			float c2 = x0 - 2.5f * x1 + 2.0f * x2 - 0.5f * x3;
+			float c3 = 0.5f * (x3 - x0) + 1.5f * (x1 - x2);
+			return ((c3 * t + c2) * t + c1) * t + c0;
+		}
+		inline float FracRead3PointLagrange(float currentDelay)
+		{
+			float readPos = (float)MaxBufferSize + pos - currentDelay;
+			int i1 = (int)readPos;
+			float frac = readPos - (float)i1;
+			int i0 = (i1 - 1) & (MaxBufferSize - 1);
+			int i1m = (i1 + 0) & (MaxBufferSize - 1);
+			int i2 = (i1 + 1) & (MaxBufferSize - 1);
+			float xm1 = buf[i0];
+			float x0 = buf[i1m];
+			float x1 = buf[i2];
+			float a = 0.5f * (x1 + xm1) - x0;
+			float b = 0.5f * (x1 - xm1);
+			float c = x0;
+			return (a * frac + b) * frac + c;
+		}
+		inline float FracRead(float currentDelay) { return FracRead4PointLagrange(currentDelay); }
 		inline float ProcessSample(float x) override final
 		{
 			x *= gainfix;
-			interval += gradient;
-			if (interval >= 1.0)
-			{
-				interval -= 1.0;
-				lastDelayTime = nextDelayTime;
-				nextDelayTime = delayTime;
-			}
-			int idt1 = lastDelayTime;
-			int idt2 = nextDelayTime;
-			float kfrac1 = lastDelayTime - idt1;
-			float kfrac2 = nextDelayTime - idt2;
-			int writePos = pos % MaxBufferSize;
-			int readPos1 = (pos + MaxBufferSize - idt1) % MaxBufferSize;
-			int readPos2 = (pos + MaxBufferSize - idt2) % MaxBufferSize;
-			pos++;
-
-			float bufout1 = ProcessAPF(z1, buf[readPos1], (1.0 - kfrac1) / (1.0 + kfrac1));
-			float bufout2 = ProcessAPF(z2, buf[readPos2], (1.0 - kfrac2) / (1.0 + kfrac2));
-			float bufout = bufout1 + (bufout2 - bufout1) * interval;
-
+			currentDelay += 0.15f * (delayTime - currentDelay);
+			float bufout = FracRead(currentDelay);
 			float xWithFB = x + bufout * fb;
 			float out = xWithFB + bufout;
-
-			buf[writePos] = ProcessDisperser<NumDispApf - 1>(ProcessDeDC(xWithFB), -morph);
+			buf[pos & (MaxBufferSize - 1)] = ProcessDisperser<NumDispApf - 1>(ProcessDeDC(xWithFB), -morph);
+			pos++;
 			return out;
 		}
+
+
 		void Reset() override
 		{
 			for (auto& v : buf)v = 0;
 			z1 = z2 = 0;
 			for (auto& v : dispz)v = 0;
 			ddcz = 0.0f;
+			currentDelay = delayTime;
 		}
 		void SetSampleRate(float sr) override { sampleRate = sr; }
 		void SetFilterParams(float cutoff, float reso, float morph) override
@@ -540,12 +651,13 @@ namespace MinusMKI
 
 			if (delayTime < 1)delayTime = 1;
 			if (delayTime > MaxBufferSize - 1)delayTime = MaxBufferSize - 1;
-			fb = 1.0 - 1.0 / reso;
+			fb = 1.0 - 1.0 / (reso * reso);
 			if (fb < 0)fb = 0;
 			if (fb > 0.999)fb = 0.999;
 			this->morph = morph;
 
-			gainfix = sqrtf(1.0 - fb);
+			gainfix = sqrtf(1.0 - fb);//nice
+			//gainfix = 1.0;//0dB
 		}
 	};
 
