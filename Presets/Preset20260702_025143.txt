@@ -53,7 +53,7 @@
 	enve1P3 = 0.000000
 	enve1P4 = 0.000000
 	enve1P5 = 1.000000
-	enve1P6 = 27.415600
+	enve1P6 = 111.012840
 	enve2Type = 2.000000
 	enve2Mode = 0.000000
 	enve2TargetID1 = 24.000000
@@ -89,7 +89,7 @@
 	enve4P3 = 0.000000
 	enve4P4 = 0.000000
 	enve4P5 = 1.000000
-	enve4P6 = 0.000000
+	enve4P6 = 42.504593
 	enve5Type = 0.000000
 	enve5Mode = 0.000000
 	enve5TargetID1 = 36.000000
@@ -101,7 +101,7 @@
 	enve5P3 = 7166.626953
 	enve5P4 = -16.000000
 	enve5P5 = 0.000000
-	enve5P6 = 0.000000
+	enve5P6 = 44.334099
 	enve6Type = 0.000000
 	enve6Mode = 0.000000
 	enve6TargetID1 = 0.000000

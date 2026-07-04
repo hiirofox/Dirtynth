@@ -78,6 +78,7 @@ namespace MinusMKI
 	public:
 		virtual void Apply(float* table, int numSamples) {};
 		virtual void SetMutantParams(float param1, float param2, float param3) {};
+		virtual void SetTimeX1000s(float t) {};//1√Îº”0.001
 		inline float modf01(float x) { return x - floorf(x); }
 		inline float clampf01(float x)
 		{
