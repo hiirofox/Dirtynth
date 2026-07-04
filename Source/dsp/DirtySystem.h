@@ -21,13 +21,14 @@ namespace Dirtynth
 
 	struct RegMutant
 	{
-		constexpr static int NumRegMutant = 4;
-		constexpr static const char* MutantNames[RegMutant::NumRegMutant] = { "HardSync","SelfPM","Kickizer","Disperser" };
+		constexpr static int NumRegMutant = 5;
+		constexpr static const char* MutantNames[RegMutant::NumRegMutant] = { "HardSync","SelfPM","Kickizer","Disperser","VirusGrain" };
 		std::vector<std::shared_ptr<TableMutant>> regMutant{
 			std::make_shared<TableMutantSync<TableWidth>>(),
 			std::make_shared<TableMutantSelfPM<TableWidth>>(),
 			std::make_shared<TableMutantKickizer<TableWidth>>(),
-			std::make_shared<TableMutantDisperser<TableWidth>>() };
+			std::make_shared<TableMutantDisperser<TableWidth>>(),
+			std::make_shared<TableMutantVirusGrain<TableWidth>>() };
 		std::shared_ptr<TableMutant> operator[](std::size_t index)
 		{
 			return regMutant[index];
@@ -105,6 +106,8 @@ namespace Dirtynth
 
 			float* intMagtable;
 			int tableWidth;
+
+			double ts;
 		};
 		constexpr static int MaxQueueLen = MaxPolyphony * 2 + 10;
 		MutantTask taskQueue[MaxQueueLen];//每个osc有2个mutant，外加一些冗余
@@ -132,9 +135,10 @@ namespace Dirtynth
 			int wtgenPreset, float wtgenPos,//WavetableGenerator参数
 			int typeA, float pA1, float pA2, float pA3,//mutantA参数
 			int typeB, float pB1, float pB2, float pB3,//mutantB参数
-			float* intMagtable/*tableWidth*2*/, int tableWidth)//输出表参数
+			float* intMagtable/*tableWidth*2*/, int tableWidth,//输出表参数
+			double ts)//时钟
 		{
-			MutantTask pack = { oscIndex, wtgenPreset, wtgenPos, typeA, pA1, pA2, pA3, typeB, pB1, pB2, pB3, intMagtable, tableWidth };
+			MutantTask pack = { oscIndex, wtgenPreset, wtgenPos, typeA, pA1, pA2, pA3, typeB, pB1, pB2, pB3, intMagtable, tableWidth, ts };
 			MutantTask* nextTask = nullptr;
 			int taskID = -1;
 			for (int i = 0; i < MaxQueueLen; ++i)
@@ -202,8 +206,10 @@ namespace Dirtynth
 
 						float* wtgenTable = wtGenerator.GetTable(task.wtgenPos * 63.0);//0-1!
 						for (int j = 0; j < task.tableWidth; ++j)localTable[j] = wtgenTable[j];
+						mutantA->SetTime(task.ts);
 						mutantA->SetMutantParams(task.pA1, task.pA2, task.pA3);
 						mutantA->Apply(localTable, task.tableWidth);
+						mutantB->SetTime(task.ts);
 						mutantB->SetMutantParams(task.pB1, task.pB2, task.pB3);
 						mutantB->Apply(localTable, task.tableWidth);
 						WTOscillator::CalcIntMagtable(task.intMagtable, localTable, task.tableWidth);
@@ -244,6 +250,8 @@ namespace Dirtynth
 		DirtynthParams params;
 		Filter* filter1 = std::dynamic_pointer_cast<Filter>(regFilt1[0]).get();
 		Filter* filter2 = std::dynamic_pointer_cast<Filter>(regFilt2[0]).get();
+
+		double t = 0.0;
 	public:
 		DirtynthVoice()
 		{
@@ -336,7 +344,7 @@ namespace Dirtynth
 					params.osc1Params.oscWtPreset, params.osc1Params.oscWtPos,
 					params.osc1Params.mutantA.mutantType, params.osc1Params.mutantA.p1, params.osc1Params.mutantA.p2, params.osc1Params.mutantA.p3,
 					params.osc1Params.mutantB.mutantType, params.osc1Params.mutantB.p1, params.osc1Params.mutantB.p2, params.osc1Params.mutantB.p3,
-					osc1.GetNextIntMagtable(), TableWidth);
+					osc1.GetNextIntMagtable(), TableWidth, t);
 			}
 			if (osc2MutantTaskID == -1 && osc2.IsSwapTablePrepared())
 			{
@@ -344,7 +352,7 @@ namespace Dirtynth
 					params.osc2Params.oscWtPreset, params.osc2Params.oscWtPos,
 					params.osc2Params.mutantA.mutantType, params.osc2Params.mutantA.p1, params.osc2Params.mutantA.p2, params.osc2Params.mutantA.p3,
 					params.osc2Params.mutantB.mutantType, params.osc2Params.mutantB.p1, params.osc2Params.mutantB.p2, params.osc2Params.mutantB.p3,
-					osc2.GetNextIntMagtable(), TableWidth);
+					osc2.GetNextIntMagtable(), TableWidth, t);
 			}
 			if (osc1MutantTaskID != -1 && mutantThreadPool->GetTaskState(osc1MutantTaskID) == 2)
 			{
@@ -391,6 +399,8 @@ namespace Dirtynth
 			freqShifter.Normalized();//这个偶尔归一化一下
 			for (int i = 0; i < numSamples; ++i)
 			{
+				t += 1.0 / sampleRate;
+
 				sampleCount++;
 				if (sampleCount >= EnvelopeUpdateInterval)
 				{

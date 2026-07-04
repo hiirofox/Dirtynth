@@ -12,7 +12,7 @@ namespace Dirtynth
 	constexpr static int NumEffects = 2;
 
 	constexpr static int NumWavetablePresets = 1;
-	constexpr static int NumMutantTypes = 4;
+	constexpr static int NumMutantTypes = 5;
 	constexpr static int NumFilterTypes = 7;
 	constexpr static int NumEnvelopeTypes = 7;
 	constexpr static int NumEnvelopeModes = 5;
@@ -440,6 +440,11 @@ namespace Dirtynth
 				PatchDesc(descs, prefix + "P1", "Disperse", true, Linear, 0.0f, 1.0f, 0.0f);
 				PatchDesc(descs, prefix + "P2", "Harmonic", true, Linear, 0.0f, 1.0f, 0.0f);
 				PatchDesc(descs, prefix + "P3", "Comb", true, Linear, 0.0f, 1.0f, 0.0f);
+				break;
+			case 4:
+				PatchDesc(descs, prefix + "P1", "Spread", true, Linear, 0.0f, 1.0f, 0.0f);
+				PatchDesc(descs, prefix + "P2", "Shift", true, Linear, 0.0f, 1.0f, 0.0f);
+				PatchDesc(descs, prefix + "P3", "Detune", true, Linear, 0.0f, 1.0f, 0.0f);
 				break;
 			default:
 				break;
