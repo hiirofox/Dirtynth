@@ -366,66 +366,6 @@ namespace MinusMKI
 			x = 1.0 - x * x;
 			return x * x;
 		}
-		inline std::pair<float, float> Interpola(float x, float width, float* bufre, float* bufim, int len = TableWidth >> 1 - 1)
-		{
-			int idx = x;
-			if (idx >= len) return { 0,0 };
-			float frac = x - idx;
-			float w1 = WindowSQW(frac - 0, width);
-			float w2 = WindowSQW(frac - 1, width);
-			float re = bufre[idx + 0] * w1 + bufre[idx + 1] * w2;
-			float im = bufim[idx + 0] * w1 + bufim[idx + 1] * w2;
-			return { re,im };
-		}
-
-	public:
-		void Apply2(float* table, int numSamples) //override
-		{
-			for (int i = 0; i < numSamples; ++i)
-			{
-				descTableRe[i] = table[i];
-				descTableIm[i] = 0;
-			}
-			MinusMKI::FFT(descTableRe, descTableIm, numSamples, 0);
-			descTableRe[0] = descTableIm[0] = 0;
-			memset(tmpRe, 0, sizeof(float) * numSamples);
-			memset(tmpIm, 0, sizeof(float) * numSamples);
-			int half = numSamples >> 1;
-
-			float pv = spread * (12.0 - 1.0) + 1.0;//1.0->8.0
-			float sv = shift * (12.0 - 1.0) + 1.0;//0.25->8.0
-
-			const float width = 4.0;
-
-			//然后做频谱插值
-			for (int i = 1; i < half; ++i)//先做上升
-			{
-				auto [re, im] = Interpola((float)i / sv, width / sv, descTableRe, descTableIm, half);
-				tmpRe[i] = re;
-				tmpIm[i] = im;
-			}
-			for (int i = 1; i < half; ++i)//再做spread
-			{
-				auto [re1, im1] = Interpola((float)i / 2.0 / pv, width / pv, tmpRe, tmpIm, half);//上
-				auto [re2, im2] = Interpola((float)i / 2.0 * pv, width * pv, tmpRe, tmpIm, half);//下
-				descTableRe[i] = re1 + re2;
-				descTableIm[i] = im1 + im2;
-			}
-
-			//最后应用上detune
-			for (int i = 1; i < half; ++i)
-			{
-			}
-			//ifft
-			for (int i = 1; i < half; ++i)
-			{
-				descTableRe[numSamples - i] = descTableRe[i];
-				descTableIm[numSamples - i] = -descTableIm[i];
-			}
-			MinusMKI::FFT(descTableRe, descTableIm, numSamples, 1);
-			for (int i = 0; i < numSamples; ++i) table[i] = descTableRe[i];
-		}
-
 		float BufRead(float x, float* buf, int len)
 		{
 			x /= (float)len;
@@ -437,6 +377,23 @@ namespace MinusMKI
 			float b = (i + 1 >= len) ? (buf[i + 1 - len]) : (buf[i + 1]);
 			return a + (b - a) * frac;
 		}
+		float BufReadLagrangePoint3(float x, float* buf, int len)//实际上没必要
+		{
+			x /= (float)len;
+			x -= floorf(x);
+			x *= (float)len;
+			int i = x;
+			float frac = x - (float)i;
+			int im1 = (i <= 0) ? (len - 1) : (i - 1);
+			int ip1 = (i + 1 >= len) ? 0 : (i + 1);
+			float y_m1 = buf[im1];
+			float y_0 = buf[i];
+			float y_p1 = buf[ip1];
+			return y_m1 * (frac * (frac - 1.0f) * 0.5f)
+				+ y_0 * (1.0f - frac * frac)
+				+ y_p1 * (frac * (frac + 1.0f) * 0.5f);
+		}
+	public:
 		//我草，时域是对的
 		void Apply(float* table, int numSamples) override
 		{
@@ -492,11 +449,13 @@ namespace MinusMKI
 				descTableRe[i] = BufRead(t, tmpRe2, numSamples) * WindowSQW(wx - 0.5, 0.5);
 			}
 			//处理detune
-			
+			double start = ts * (double)detune * 8.0;
+			ts -= floor(ts);
+			int si = start * numSamples;
 			//灌入
 			for (int i = 0; i < numSamples; ++i)
 			{
-				table[i] = descTableRe[i];
+				table[i] = descTableRe[i] + BufRead(si + i, descTableRe, numSamples);
 			}
 		}
 
@@ -505,7 +464,7 @@ namespace MinusMKI
 			spread = clampf01(spread);
 			shift = clampf01(shift);
 			detune = clampf01(detune);
-			this->spread = ExpCurve(spread, 4.0);
+			this->spread = ExpCurve(spread, 5.0);
 			this->shift = ExpCurve(shift, 4.0);
 			this->detune = detune;
 		}
