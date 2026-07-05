@@ -85,6 +85,13 @@ namespace MinusMKI
 			if (isnan(x))return 0;
 			return x < 0.0 ? 0.0 : (x > 1.0 ? 1.0 : x);
 		}
+		inline float ExpCurve(float x, float k)
+		{
+			if (fabsf(k) < 0.01)return x;
+			float sign = x > 0 ? 1 : -1;
+			x = fabsf(x);
+			return sign * (expf((x - 1.0) * k) - expf(-k)) / (1.0 - expf(-k));
+		}
 	};
 
 	template<int TableWidth>
@@ -350,17 +357,31 @@ namespace MinusMKI
 		float tmpIm[TableWidth] = { 0 };
 		float spread = 0, shift = 0, detune = 0;
 
-		inline std::pair<float, float> InterpolaTmp(float idxf, int half = TableWidth >> 1 - 1)
+		float WindowSQW(float x, float kernelWidth = 0.35)
 		{
-			int idx = idxf;
-			if (idx >= half) return { 0,0 };
-			float frac = idxf - idx;
-			float re = tmpRe[idx] + (tmpRe[idx + 1] - tmpRe[idx]) * frac;
-			float im = tmpIm[idx] + (tmpIm[idx + 1] - tmpIm[idx]) * frac;
-			return { re,im };
+			if (x < -kernelWidth || x > kernelWidth)return 0;
+			x /= kernelWidth;
+			x = 1.0 - x * x;
+			return x * x;
 		}
+		inline std::pair<float, float> InterpolaTmp(float i, float k, int half = TableWidth >> 1 - 1)
+		{
+			float divk = 1.0 / k;
+
+			float idxf = (float)i * divk;
+			int idx = idxf;
+			if (idx >= half)return { 0,0 };
+			float frac = idxf - idx;
+			//square welch核
+			float a = WindowSQW(frac - 0.0, 1.85 * divk);
+			float b = WindowSQW(frac - 1.0, 1.85 * divk);
+			float re = tmpRe[idx] * a + tmpRe[idx + 1] * b;
+			float im = tmpIm[idx] * a + tmpIm[idx + 1] * b;
+			return { re ,im };
+		}
+
 	public:
-		void Apply2(float* table, int numSamples) //override
+		void Apply(float* table, int numSamples) override
 		{
 			for (int i = 0; i < numSamples; ++i)
 			{
@@ -374,24 +395,26 @@ namespace MinusMKI
 			int half = numSamples >> 1;
 			//首先先升高八度，让分辨率加倍
 			//virus ti则应该是在外面降低八度
-			for (int i = 1; i < half; i += 2)
+			for (int i = 0; i < half; i += 2)
 			{
 				tmpRe[i] = descTableRe[i >> 1];
 				tmpIm[i] = descTableIm[i >> 1];
 			}
-			float pv = spread * (8.0 - 1.0) + 1.0;//1.0->8.0
-			float sv = shift * (8.0 - 0.125) + 0.125;//0.25->8.0
+			float pv = spread * (12.0 - 1.0) + 1.0;//1.0->8.0
+			float sv = shift * (12.0 - 0.025) + 0.025;//0.25->8.0
 			float fv1 = sv * pv;
-			float fv2 = sv / pv;
-			if (fv1 < 0.125)fv1 = 0.125;
-			if (fv2 < 0.125)fv2 = 0.125;
+			float fv2 = sv / (pv * pv);//感觉virus的spread，低频那边下降更快一些
+			if (fv1 < 0.00125)fv1 = 0.00125;
+			if (fv2 < 0.00125)fv2 = 0.00125;
+			float norm1 = sqrtf(1.0 / fv1) * 0.5;
+			float norm2 = sqrtf(1.0 / fv2) * 0.5;
 			//然后做频谱插值
 			for (int i = 1; i < half; ++i)
 			{
-				auto [re1, im1] = InterpolaTmp((float)i / fv1, half);
-				auto [re2, im2] = InterpolaTmp((float)i / fv2, half);
-				descTableRe[i] = (re1 + re2) * 0.5;
-				descTableIm[i] = (im1 + im2) * 0.5;
+				auto [re1, im1] = InterpolaTmp(i, fv1, half);
+				auto [re2, im2] = InterpolaTmp(i, fv2, half);
+				descTableRe[i] = re1 * norm1 + re2 * norm2;
+				descTableIm[i] = im1 * norm1 + im2 * norm2;
 			}
 			//最后应用上detune
 			for (int i = 1; i < half; ++i)
@@ -407,59 +430,13 @@ namespace MinusMKI
 			for (int i = 0; i < numSamples; ++i) table[i] = descTableRe[i];
 		}
 
-		float WindowSQW(float x)
-		{
-			if (x < 0 || x > 1)return 0;
-			x = 2.0 * x - 1.0;
-			x = 1.0 - x * x;
-			return x * x;
-		}
-		inline float ReadBufInterpola(float idxf, float* buf, int numSamples)
-		{
-			idxf -= floorf(idxf);
-			idxf *= numSamples;
-			int idx = idxf;
-			float frac = idxf - idx;
-			float a = buf[idx];
-			float b = idx >= numSamples - 1 ? buf[idx - numSamples + 1] : buf[idx + 1];
-			return a + (b - a) * frac;
-		}
-		void Apply(float* table, int numSamples) override
-		{
-			//来吧试试纯时域方法
-			float sv = shift * (32.0 - 0.125) + 0.125;//0.25->8.0
-			float pv = spread * (32.0 - 1.0) + 1.0;//1.0->8.0
-			float fv1 = sv * pv;
-			float fv2 = sv / pv;
-			if (fv1 < 0.125)fv1 = 0.125;
-			if (fv2 < 0.125)fv2 = 0.125;
-
-			for (int i = 0; i < numSamples; ++i)
-			{
-				float x = (float)i / numSamples * 2.0;
-				float w1 = WindowSQW(x + 0.5);
-				float w2 = WindowSQW(x + 0.0);
-				float w3 = WindowSQW(x - 0.5);
-				float y1 = ReadBufInterpola((x + 0.5) * fv1, table, numSamples) * w1 +
-					ReadBufInterpola((x + 0.0) * fv1, table, numSamples) * w2 +
-					ReadBufInterpola((x - 0.5) * fv1, table, numSamples) * w3;
-				float y2 = ReadBufInterpola((x + 0.5) * fv2, table, numSamples) * w1 +
-					ReadBufInterpola((x + 0.0) * fv2, table, numSamples) * w2 +
-					ReadBufInterpola((x - 0.5) * fv2, table, numSamples) * w3;
-				tmpRe[i] = (y1 + y2) * 0.5;
-			}
-			for (int i = 0; i < numSamples; ++i)
-			{
-				table[i] = tmpRe[i];
-			}
-		}
 		void SetMutantParams(float spread, float shift, float detune) override
 		{
 			spread = clampf01(spread);
 			shift = clampf01(shift);
 			detune = clampf01(detune);
-			this->spread = spread;
-			this->shift = shift;
+			this->spread = ExpCurve(spread, 4.0);
+			this->shift = ExpCurve(shift, 6.0);
 			this->detune = detune;
 		}
 		void SetTime(double ts) override { this->ts = ts; }
