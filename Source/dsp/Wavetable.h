@@ -440,31 +440,63 @@ namespace MinusMKI
 		//我草，时域是对的
 		void Apply(float* table, int numSamples) override
 		{
-			float pv = spread * (12.0 - 1.0) + 1.0;//1.0->8.0
-			float sv = shift * (12.0 - 1.0) + 1.0;//0.25->8.0
+			float pv = spread * (24.0 - 1.0) + 1.0;//1.0->8.0
+			float sv = shift * (24.0 - 0.125) + 0.125;//0.125->8.0
 
 			float dt1 = sv * 2.0 * pv;
 			float dt2 = sv * 2.0 / pv;
-			
+
+			//滤波一下（感觉滤不滤都行）
+			for (int i = 0; i < numSamples; ++i)
+			{
+				descTableRe[i] = table[i];
+				descTableIm[i] = 0.0;
+			}
+			MinusMKI::FFT(descTableRe, descTableIm, numSamples, 0);
+			descTableRe[0] = descTableIm[0] = 0;
+			int half = numSamples >> 1;
+			int spl1 = half / dt1;
+			int spl2 = half / dt2;
+			if (spl1 > half)spl1 = half;
+			if (spl2 > half)spl2 = half;
+			for (int i = 0; i < spl1; ++i)tmpRe[i] = descTableRe[i], tmpIm[i] = descTableIm[i];
+			for (int i = spl1; i < half; ++i)tmpRe[i] = 0, tmpIm[i] = 0;
+			for (int i = 0; i < spl2; ++i)tmpRe2[i] = descTableRe[i], tmpIm2[i] = descTableIm[i];
+			for (int i = spl2; i < half; ++i)tmpRe2[i] = 0, tmpIm2[i] = 0;
+			for (int i = 1; i < half; ++i)
+			{
+				tmpRe[numSamples - i] = tmpRe[i];
+				tmpIm[numSamples - i] = -tmpIm[i];
+				tmpRe2[numSamples - i] = tmpRe2[i];
+				tmpIm2[numSamples - i] = -tmpIm2[i];
+			}
+			MinusMKI::FFT(tmpRe, tmpIm, numSamples, 1);
+			MinusMKI::FFT(tmpRe2, tmpIm2, numSamples, 1);
+
+			//时域法virus grain
 			float t = 0;
 			int l1 = numSamples / pv / 2.0;
 			for (int i = 0; i < l1; ++i)
 			{
 				t += dt1;
 				float wx = (float)i / l1;
-				tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
+				//tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
+				descTableRe[i] = BufRead(t, tmpRe, numSamples) * WindowSQW(wx - 0.5, 0.5);
 			}
 			t = 0;
 			for (int i = l1; i < numSamples; ++i)
 			{
 				t += dt2;
 				float wx = (float)(i - l1) / (numSamples - l1);
-				tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
+				//tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
+				descTableRe[i] = BufRead(t, tmpRe2, numSamples) * WindowSQW(wx - 0.5, 0.5);
 			}
-
+			//处理detune
+			
+			//灌入
 			for (int i = 0; i < numSamples; ++i)
 			{
-				table[i] = tmpRe[i];
+				table[i] = descTableRe[i];
 			}
 		}
 
@@ -474,7 +506,7 @@ namespace MinusMKI
 			shift = clampf01(shift);
 			detune = clampf01(detune);
 			this->spread = ExpCurve(spread, 4.0);
-			this->shift = ExpCurve(shift, 6.0);
+			this->shift = ExpCurve(shift, 4.0);
 			this->detune = detune;
 		}
 		void SetTime(double ts) override { this->ts = ts; }
