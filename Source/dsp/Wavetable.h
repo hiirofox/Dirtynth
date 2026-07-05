@@ -355,6 +355,8 @@ namespace MinusMKI
 		float descTableIm[TableWidth] = { 0 };
 		float tmpRe[TableWidth] = { 0 };
 		float tmpIm[TableWidth] = { 0 };
+		float tmpRe2[TableWidth] = { 0 };
+		float tmpIm2[TableWidth] = { 0 };
 		float spread = 0, shift = 0, detune = 0;
 
 		float WindowSQW(float x, float kernelWidth = 0.35)
@@ -364,24 +366,20 @@ namespace MinusMKI
 			x = 1.0 - x * x;
 			return x * x;
 		}
-		inline std::pair<float, float> InterpolaTmp(float i, float k, int half = TableWidth >> 1 - 1)
+		inline std::pair<float, float> Interpola(float x, float width, float* bufre, float* bufim, int len = TableWidth >> 1 - 1)
 		{
-			float divk = 1.0 / k;
-
-			float idxf = (float)i * divk;
-			int idx = idxf;
-			if (idx >= half)return { 0,0 };
-			float frac = idxf - idx;
-			//square welch核
-			float a = WindowSQW(frac - 0.0, 1.85 * divk);
-			float b = WindowSQW(frac - 1.0, 1.85 * divk);
-			float re = tmpRe[idx] * a + tmpRe[idx + 1] * b;
-			float im = tmpIm[idx] * a + tmpIm[idx + 1] * b;
-			return { re ,im };
+			int idx = x;
+			if (idx >= len) return { 0,0 };
+			float frac = x - idx;
+			float w1 = WindowSQW(frac - 0, width);
+			float w2 = WindowSQW(frac - 1, width);
+			float re = bufre[idx + 0] * w1 + bufre[idx + 1] * w2;
+			float im = bufim[idx + 0] * w1 + bufim[idx + 1] * w2;
+			return { re,im };
 		}
 
 	public:
-		void Apply(float* table, int numSamples) override
+		void Apply2(float* table, int numSamples) //override
 		{
 			for (int i = 0; i < numSamples; ++i)
 			{
@@ -393,29 +391,27 @@ namespace MinusMKI
 			memset(tmpRe, 0, sizeof(float) * numSamples);
 			memset(tmpIm, 0, sizeof(float) * numSamples);
 			int half = numSamples >> 1;
-			//首先先升高八度，让分辨率加倍
-			//virus ti则应该是在外面降低八度
-			for (int i = 0; i < half; i += 2)
-			{
-				tmpRe[i] = descTableRe[i >> 1];
-				tmpIm[i] = descTableIm[i >> 1];
-			}
+
 			float pv = spread * (12.0 - 1.0) + 1.0;//1.0->8.0
-			float sv = shift * (12.0 - 0.025) + 0.025;//0.25->8.0
-			float fv1 = sv * pv;
-			float fv2 = sv / (pv * pv);//感觉virus的spread，低频那边下降更快一些
-			if (fv1 < 0.00125)fv1 = 0.00125;
-			if (fv2 < 0.00125)fv2 = 0.00125;
-			float norm1 = sqrtf(1.0 / fv1) * 0.5;
-			float norm2 = sqrtf(1.0 / fv2) * 0.5;
+			float sv = shift * (12.0 - 1.0) + 1.0;//0.25->8.0
+
+			const float width = 4.0;
+
 			//然后做频谱插值
-			for (int i = 1; i < half; ++i)
+			for (int i = 1; i < half; ++i)//先做上升
 			{
-				auto [re1, im1] = InterpolaTmp(i, fv1, half);
-				auto [re2, im2] = InterpolaTmp(i, fv2, half);
-				descTableRe[i] = re1 * norm1 + re2 * norm2;
-				descTableIm[i] = im1 * norm1 + im2 * norm2;
+				auto [re, im] = Interpola((float)i / sv, width / sv, descTableRe, descTableIm, half);
+				tmpRe[i] = re;
+				tmpIm[i] = im;
 			}
+			for (int i = 1; i < half; ++i)//再做spread
+			{
+				auto [re1, im1] = Interpola((float)i / 2.0 / pv, width / pv, tmpRe, tmpIm, half);//上
+				auto [re2, im2] = Interpola((float)i / 2.0 * pv, width * pv, tmpRe, tmpIm, half);//下
+				descTableRe[i] = re1 + re2;
+				descTableIm[i] = im1 + im2;
+			}
+
 			//最后应用上detune
 			for (int i = 1; i < half; ++i)
 			{
@@ -428,6 +424,48 @@ namespace MinusMKI
 			}
 			MinusMKI::FFT(descTableRe, descTableIm, numSamples, 1);
 			for (int i = 0; i < numSamples; ++i) table[i] = descTableRe[i];
+		}
+
+		float BufRead(float x, float* buf, int len)
+		{
+			x /= (float)len;
+			x -= floorf(x);
+			x *= (float)len;
+			int i = x;
+			float frac = x - i;
+			float a = buf[i];
+			float b = (i + 1 >= len) ? (buf[i + 1 - len]) : (buf[i + 1]);
+			return a + (b - a) * frac;
+		}
+		//我草，时域是对的
+		void Apply(float* table, int numSamples) override
+		{
+			float pv = spread * (12.0 - 1.0) + 1.0;//1.0->8.0
+			float sv = shift * (12.0 - 1.0) + 1.0;//0.25->8.0
+
+			float dt1 = sv * 2.0 * pv;
+			float dt2 = sv * 2.0 / pv;
+			
+			float t = 0;
+			int l1 = numSamples / pv / 2.0;
+			for (int i = 0; i < l1; ++i)
+			{
+				t += dt1;
+				float wx = (float)i / l1;
+				tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
+			}
+			t = 0;
+			for (int i = l1; i < numSamples; ++i)
+			{
+				t += dt2;
+				float wx = (float)(i - l1) / (numSamples - l1);
+				tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
+			}
+
+			for (int i = 0; i < numSamples; ++i)
+			{
+				table[i] = tmpRe[i];
+			}
 		}
 
 		void SetMutantParams(float spread, float shift, float detune) override
