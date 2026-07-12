@@ -366,9 +366,16 @@ namespace MinusMKI
 			x = 1.0 - x * x;
 			return x * x;
 		}
+		float Window01(float x)
+		{
+			x -= floorf(x);
+			x = 2.0 * x - 1.0;
+			x = 1.0 - x * x;
+			return x * x;
+		}
 		float BufRead(float x, float* buf, int len)
 		{
-			x /= (float)len;
+			//x /= (float)len;
 			x -= floorf(x);
 			x *= (float)len;
 			int i = x;
@@ -379,7 +386,7 @@ namespace MinusMKI
 		}
 		float BufReadLagrangePoint3(float x, float* buf, int len)//实际上没必要
 		{
-			x /= (float)len;
+			//x /= (float)len;
 			x -= floorf(x);
 			x *= (float)len;
 			int i = x;
@@ -412,8 +419,8 @@ namespace MinusMKI
 			MinusMKI::FFT(descTableRe, descTableIm, numSamples, 0);
 			descTableRe[0] = descTableIm[0] = 0;
 			int half = numSamples >> 1;
-			int spl1 = half / dt1;
-			int spl2 = half / dt2;
+			int spl1 = half / dt1 / 2.0;
+			int spl2 = half / dt2 / 2.0;
 			if (spl1 > half)spl1 = half;
 			if (spl2 > half)spl2 = half;
 			for (int i = 0; i < spl1; ++i)tmpRe[i] = descTableRe[i], tmpIm[i] = descTableIm[i];
@@ -430,30 +437,27 @@ namespace MinusMKI
 			MinusMKI::FFT(tmpRe, tmpIm, numSamples, 1);
 			MinusMKI::FFT(tmpRe2, tmpIm2, numSamples, 1);
 
+
 			//处理detune
 			double start = ts * (double)detune * 8.0;
 			start -= floor(start);
 			int si = start * numSamples;
 
 			//时域法virus grain
-			//float t = 0;
-			float t = start * numSamples;
-			int l1 = numSamples / pv / 2.0;
-			for (int i = 0; i < l1; ++i)
+			memset(descTableRe, 0, sizeof(descTableRe));
+			float t1 = 0, t2 = 0;
+			dt1 /= numSamples;
+			dt2 /= numSamples;
+			int i0 = numSamples / 2;
+			for (int i = 0; i < numSamples; ++i)
 			{
-				t += dt1;
-				float wx = (float)i / l1;
-				//tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
-				descTableRe[i] = BufRead(t, tmpRe, numSamples) * WindowSQW(wx - 0.5, 0.5);
-			}
-			//t = 0;
-			t = start * numSamples;
-			for (int i = l1; i < numSamples; ++i)
-			{
-				t += dt2;
-				float wx = (float)(i - l1) / (numSamples - l1);
-				//tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
-				descTableRe[i] = BufRead(t, tmpRe2, numSamples) * WindowSQW(wx - 0.5, 0.5);
+				float x = (float)i / numSamples;
+				int idx1 = i;
+				int idx2 = (i + i0) % numSamples;
+				descTableRe[idx1] += BufRead(t1 - start, tmpRe, numSamples) * Window01(x);
+				descTableRe[idx2] += BufRead(t2 + start, tmpRe2, numSamples) * Window01(x);
+				t1 += dt1;
+				t2 += dt2;
 			}
 
 			//灌入
