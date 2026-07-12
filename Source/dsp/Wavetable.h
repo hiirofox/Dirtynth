@@ -430,8 +430,14 @@ namespace MinusMKI
 			MinusMKI::FFT(tmpRe, tmpIm, numSamples, 1);
 			MinusMKI::FFT(tmpRe2, tmpIm2, numSamples, 1);
 
+			//处理detune
+			double start = ts * (double)detune * 8.0;
+			start -= floor(start);
+			int si = start * numSamples;
+
 			//时域法virus grain
-			float t = 0;
+			//float t = 0;
+			float t = start * numSamples;
 			int l1 = numSamples / pv / 2.0;
 			for (int i = 0; i < l1; ++i)
 			{
@@ -440,7 +446,8 @@ namespace MinusMKI
 				//tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
 				descTableRe[i] = BufRead(t, tmpRe, numSamples) * WindowSQW(wx - 0.5, 0.5);
 			}
-			t = 0;
+			//t = 0;
+			t = start * numSamples;
 			for (int i = l1; i < numSamples; ++i)
 			{
 				t += dt2;
@@ -448,14 +455,12 @@ namespace MinusMKI
 				//tmpRe[i] = BufRead(t, table, numSamples) * WindowSQW(wx - 0.5, 0.5);
 				descTableRe[i] = BufRead(t, tmpRe2, numSamples) * WindowSQW(wx - 0.5, 0.5);
 			}
-			//处理detune
-			double start = ts * (double)detune * 8.0;
-			ts -= floor(ts);
-			int si = start * numSamples;
+
 			//灌入
 			for (int i = 0; i < numSamples; ++i)
 			{
-				table[i] = descTableRe[i] + BufRead(si + i, descTableRe, numSamples);
+				//table[i] = descTableRe[i] + BufRead(si + i, descTableRe, numSamples);
+				table[i] = descTableRe[i];
 			}
 		}
 
@@ -466,7 +471,7 @@ namespace MinusMKI
 			detune = clampf01(detune);
 			this->spread = ExpCurve(spread, 5.0);
 			this->shift = ExpCurve(shift, 4.0);
-			this->detune = detune;
+			this->detune = ExpCurve(detune, 4.0);
 		}
 		void SetTime(double ts) override { this->ts = ts; }
 	};

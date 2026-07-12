@@ -2,7 +2,9 @@ Dn=Done. Ip=InProgress.
 
 01.0. 做相位整形mutant: (phasemix minp2linp phase2mag)。
 
-01.5. 仿制virus ti的一个波表效果器，命名为VirusGrain。
+01.5.Dn. 仿制virus ti的一个波表效果器，命名为VirusGrain。
+
+01.6. 给mutant加上自己的状态，而不是单纯输入时间参数。
 
 02.0.Dn. 修好comb,4阶comb,硬弦模态滤波器的调制咔哒声问题。
 
