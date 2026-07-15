@@ -305,6 +305,7 @@ namespace MinusMKI
 			sampleRate = sr;
 		}
 	};
+
 	class CombFilter : public Filter
 	{
 	private:
@@ -424,7 +425,8 @@ namespace MinusMKI
 			float xWithFB = (morph < 0.5f) ? xWithFB_Add : xWithFB_Sub;
 			float out = out_Add + (out_Sub - out_Add) * morph;
 			buf[pos & (MaxBufferSize - 1)] = ProcessDeDC(xWithFB);
-			pos++;
+			//pos++;
+			pos = (pos + 1) & (MaxBufferSize - 1);
 			return out;
 		}
 
@@ -520,11 +522,16 @@ namespace MinusMKI
 		float sampleRate = 48000;
 		float buf[MaxBufferSize] = { 0 };
 		int pos = 0;
-		float delayTime = 1.0;
 		float fb = 0.0;
 		float gainfix = 1.0;
 		float morph = 0;
 
+		float gradient = 1.0 / 256.0;
+		float interval = 0.0;
+
+		float lastDelayTime = 10.0;
+		float nextDelayTime = 10.0;
+		float delayTime = 10.0;
 		float currentDelay = 10.0;
 
 		//实际上诸如此类一阶全通还可以少一个乘法
@@ -620,12 +627,24 @@ namespace MinusMKI
 		inline float ProcessSample(float x) override final
 		{
 			x *= gainfix;
-			currentDelay += 0.15f * (delayTime - currentDelay);
-			float bufout = FracRead(currentDelay);
+			//currentDelay += 0.15f * (delayTime - currentDelay);
+			//float bufout = FracRead(currentDelay);
+			interval += gradient;
+			if (interval >= 1.0)
+			{
+				interval -= 1.0;
+				lastDelayTime = nextDelayTime;
+				nextDelayTime = delayTime;
+			}
+			float bufout1 = FracRead(lastDelayTime);
+			float bufout2 = FracRead(nextDelayTime);
+			float bufout = bufout1 + (bufout2 - bufout1) * interval;
+
 			float xWithFB = x + bufout * fb;
 			float out = xWithFB + bufout;
 			buf[pos & (MaxBufferSize - 1)] = ProcessDisperser<NumDispApf - 1>(ProcessDeDC(xWithFB), -morph);
-			pos++;
+			//pos++;
+			pos = (pos + 1) & (MaxBufferSize - 1);
 			return out;
 		}
 
