@@ -484,7 +484,8 @@ namespace MinusMKI
 	{
 	public:
 	private:
-		IIRBlep2::IIRBlep blit;//只使用其blit功能
+		TableBlep blit;//也不错哦！
+		//IIRBlep2::IIRBlep blit;//感觉最好
 		//Lagrange4thBlep blit;//其实也不错
 
 		float intMagtable1[TableWidth * 2] = { 0 };
@@ -788,6 +789,7 @@ namespace MinusMKI
 			if (t < 0.0)t += 1.0;
 			return mag * selectedTableWidth;
 		}
+
 		float ProcessSample(float dt, float pm = 0.0) {
 			return ProcessSampleHQ(dt, pm);
 		}

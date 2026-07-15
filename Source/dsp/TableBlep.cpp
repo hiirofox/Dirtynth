@@ -204,20 +204,26 @@ namespace TableBlepCoeffs
 			mpblep[i] = intv;
 			//mpblamp[i] = intv2;
 		}
+
+		float blitEnergy = 0;
 		for (int i = 0; i < len; ++i)
 		{
 			mpblit[i] = mpblit[i] / intv * (numTables + 1);
+			blitEnergy += mpblit[i] * mpblit[i];
 			mpblep[i] = mpblep[i] / intv - 1.0;
 			//mpblamp[i] = -0.5 * (-mpblamp[i] / intv2 + (float)i / len) * (numTables + 1);
 		}
+		blitEnergy = sqrtf(blitEnergy) / numTables * 6.0;//因为要砍表所以能量按表平分，这个6.0是为了对齐IIRBlep的增益
+
 		//为mpblit,mpblep,mpblamp叠加直流补偿窗
-		ApplyDCCompensation(mpblit, len);
+		//ApplyDCCompensation(mpblit, len);
 		ApplyDCCompensation(mpblep, len);
 
 		double blepintv = 0.0;
 		double dtv = (double)wsiz / len;
 		for (int i = 0; i < len; ++i)
 		{
+			mpblit[i] /= blitEnergy;//补偿能量
 			blepintv += mpblep[i];
 			mpblamp[i] = blepintv * dtv;
 		}
@@ -237,7 +243,7 @@ namespace TableBlepCoeffs
 				tableBlamp[i][j] = mpblamp[pos] * (1.0 - frac) + mpblamp[pos + 1] * frac;
 
 			}
-			tableBlit[i][0] -= 1.0;
+			//tableBlit[i][0] -= 1.0;
 		}
 	}
 }
