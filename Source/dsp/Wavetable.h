@@ -484,8 +484,8 @@ namespace MinusMKI
 	{
 	public:
 	private:
-		TableBlep blit;//也不错哦！
-		//IIRBlep2::IIRBlep blit;//感觉最好
+		//TableBlep blit;//也不错哦！
+		IIRBlep2::IIRBlep blit;//感觉最好
 		//Lagrange4thBlep blit;//其实也不错
 
 		float intMagtable1[TableWidth * 2] = { 0 };

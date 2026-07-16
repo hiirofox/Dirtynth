@@ -5,19 +5,10 @@
 #include <unordered_map>
 #include <vector>
 #include "Serializer.h"
+#include "DirtyDef.h"
 
 namespace Dirtynth
 {
-	constexpr static int NumEnvelopes = 12;
-	constexpr static int NumEffects = 2;
-
-	constexpr static int NumWavetablePresets = 1;
-	constexpr static int NumMutantTypes = 5;
-	constexpr static int NumFilterTypes = 7;
-	constexpr static int NumEnvelopeTypes = 7;
-	constexpr static int NumEnvelopeModes = 5;
-	constexpr static int NumEffectTypes = 4;
-
 
 	/*KnobFeel helper function*/
 	//这些param应该都是0到1归一化的

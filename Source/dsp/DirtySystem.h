@@ -2,22 +2,17 @@
 
 #include <array>
 #include <memory>
-
 #include "Wavetable.h"
 #include "FreqShifter.h"
 #include "Filter.h"
 #include "Envelope.h"
 #include "DirtyParams.h"
 #include "Platform.h"
+#include "DirtyDef.h"
 
 namespace Dirtynth
 {
 	using namespace MinusMKI;
-
-	constexpr static int EnvelopeUpdateInterval = 6;//这个不是越大越好，也不是越小越好
-	constexpr static int MaxPolyphony = 8;
-	constexpr static int NumMutantThreads = 2;//根据平台cpu填
-	constexpr static int MaxBlockSize = 256;//内部处理用的最大块大小
 
 	struct RegMutant
 	{
@@ -466,14 +461,6 @@ namespace Dirtynth
 			return enves;
 		}
 	};
-
-	class EnvelopeSystem//用调制矩阵就很正确吗？
-	{
-	private:
-	public:
-
-	};
-
 
 	struct DirtynthMidiEvent
 	{
