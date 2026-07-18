@@ -3579,6 +3579,12 @@
     <ClInclude Include="..\..\Source\dsp\presets\presets.h">
       <Filter>Dirtynth\Source\dsp\presets</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\DirtyDef.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\dsp\DirtySystem2.h">
+      <Filter>Dirtynth\Source\dsp</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\dsp\Platform.h">
       <Filter>Dirtynth\Source\dsp</Filter>
     </ClInclude>

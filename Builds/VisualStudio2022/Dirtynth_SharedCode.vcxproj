@@ -2840,6 +2840,8 @@
     <ClInclude Include="..\..\Source\dsp\effects\reverb\VintageHall.h"/>
     <ClInclude Include="..\..\Source\dsp\effects\effects.h"/>
     <ClInclude Include="..\..\Source\dsp\presets\presets.h"/>
+    <ClInclude Include="..\..\Source\dsp\DirtyDef.h"/>
+    <ClInclude Include="..\..\Source\dsp\DirtySystem2.h"/>
     <ClInclude Include="..\..\Source\dsp\Platform.h"/>
     <ClInclude Include="..\..\Source\dsp\Cpptools.h"/>
     <ClInclude Include="..\..\Source\dsp\DirtyParams.h"/>
